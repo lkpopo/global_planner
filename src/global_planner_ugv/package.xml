@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<package format="2">
+    <name>global_planner_ugv</name>
+    <version>0.0.1</version>
+    <description>The prometheus_global_planner_ugv package (ROS2 port)</description>
+
+    <maintainer email="pfdeng.work@gmail.com">Pengfei Deng</maintainer>
+    <license>GPLv3</license>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+
+    <depend>rclcpp</depend>
+    <depend>std_msgs</depend>
+    <depend>sensor_msgs</depend>
+    <depend>geometry_msgs</depend>
+    <depend>nav_msgs</depend>
+    <depend>pcl_conversions</depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>

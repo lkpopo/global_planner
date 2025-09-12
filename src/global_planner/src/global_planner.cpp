@@ -32,7 +32,7 @@ namespace global_planner
         if (!pcd_path.empty())
         {
             RCLCPP_INFO(this->get_logger(), "Loading static global map from PCD: %s", pcd_path.c_str());
-            pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
+            const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
             if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_path, *cloud) == -1)
             {
                 RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'global_planner/pcd_path'.");
@@ -41,14 +41,8 @@ namespace global_planner
             }
             else
             {
-                // 转换为 ROS2 消息
-                sensor_msgs::msg::PointCloud2 msg;
-                pcl::toROSMsg(*cloud, msg);
-                msg.header.frame_id = "map"; // 给个固定的坐标系
-                msg.header.stamp = this->now();
-
                 // 更新到占据地图
-                Astar_ptr->Occupy_map_ptr->map_update_gpcl(std::make_shared<sensor_msgs::msg::PointCloud2>(msg));
+                Astar_ptr->Occupy_map_ptr->map_update_gpcl(cloud);
                 RCLCPP_INFO(this->get_logger(), "Global map initialized from PCD file.");
             }
 

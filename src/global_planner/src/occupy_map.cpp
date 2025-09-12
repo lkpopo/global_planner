@@ -8,17 +8,10 @@ namespace global_planner
         node_ = node;
         // ---------------- 参数读取 ----------------
         cost_inflate = node->declare_parameter<int>("global_planner/cost_inflate", 5);
-
-        origin_(0) = node->declare_parameter<double>("map/origin_x", -5.0);
-        origin_(1) = node->declare_parameter<double>("map/origin_y", -5.0);
-        origin_(2) = node->declare_parameter<double>("map/origin_z", -0.5);
-
-        map_size_3d_(0) = node->declare_parameter<double>("map/map_size_x", 100.0);
-        map_size_3d_(1) = node->declare_parameter<double>("map/map_size_y", 100.0);
-        map_size_3d_(2) = node->declare_parameter<double>("map/map_size_z", 20.0);
-
+        origin_(0) = node->declare_parameter<double>("map/origin_x", 0.0);
+        origin_(1) = node->declare_parameter<double>("map/origin_y", 0.0);
+        origin_(2) = node->declare_parameter<double>("map/origin_z", 0.0);
         inflate_ = node->declare_parameter<double>("map/inflate", 0.3);
-
         node->get_parameter<double>("map/resolution", resolution_);
 
         // 发布 地图rviz显示
@@ -35,36 +28,12 @@ namespace global_planner
         global_point_cloud_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
         // 膨胀点云指针
         cloud_inflate_vis_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        // 传入点云指针（临时指针）
-        input_point_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
         this->inv_resolution_ = 1.0 / resolution_;
-        for (int i = 0; i < 3; ++i)
-        {
-            // 占据图尺寸 = 地图尺寸 / 分辨率
-            grid_size_(i) = ceil(map_size_3d_(i) / resolution_);
-        }
-
-        // 占据容器的大小 = 占据图尺寸 x*y*z
-        occupancy_buffer_.resize(grid_size_(0) * grid_size_(1) * grid_size_(2));
-        cost_map_.resize(grid_size_(0) * grid_size_(1) * grid_size_(2));
-        fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
-        fill(cost_map_.begin(), cost_map_.end(), 0.0);
-
-        min_range_ = origin_;
-        max_range_ = origin_ + map_size_3d_;
-
-        get_gpcl = false;
-        // 生成地图边界：点云形式
-        double dist = 0.1;                                      // 每多少距离一个点
-        int numdist_x = (max_range_(0) - min_range_(0)) / dist; // x的点数
-        int numdist_y = (max_range_(1) - min_range_(1)) / dist; // y的点数
-        int numdist = 2 * (numdist_x + numdist_y);              // 总点数
-
+        
         // 膨胀格子数 = 膨胀距离/分辨率
         // ceil返回大于或者等于指定表达式的最小整数
         ifn = ceil(inflate_ * inv_resolution_);
-
         inflate_index = 0;
         // 三维关键点膨胀
         for (int x = -ifn; x <= ifn; x++)
@@ -122,18 +91,32 @@ namespace global_planner
     }
 
     // 地图更新函数 - 输入：全局点云
-    void Occupy_map::map_update_gpcl(const std::shared_ptr<const sensor_msgs::msg::PointCloud2> &global_point)
+    void Occupy_map::map_update_gpcl(const pcl::PointCloud<pcl::PointXYZ>::Ptr global_point)
     {
-        // 全局地图只更新一次
-        if (get_gpcl)
+        global_point_cloud_map = global_point;
+        Eigen::Vector4f min_pt, max_pt;
+        pcl::getMinMax3D(*global_point_cloud_map, min_pt, max_pt);
+
+        // map 尺寸
+        map_size_3d_(0) = max_pt.x() - min_pt.x();
+        map_size_3d_(1) = max_pt.y() - min_pt.y();
+        map_size_3d_(2) = max_pt.z() - min_pt.z();
+
+        for (int i = 0; i < 3; ++i)
         {
-            return;
+            // 占据图尺寸 = 地图尺寸 / 分辨率
+            grid_size_(i) = ceil(map_size_3d_(i) / resolution_);
         }
 
-        get_gpcl = true;
-        has_global_point = true;
-        pcl::fromROSMsg(*global_point, *input_point_cloud);
-        global_point_cloud_map = input_point_cloud;
+        // 占据容器的大小 = 占据图尺寸 x*y*z
+        occupancy_buffer_.resize(grid_size_(0) * grid_size_(1) * grid_size_(2));
+        cost_map_.resize(grid_size_(0) * grid_size_(1) * grid_size_(2));
+        fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
+        fill(cost_map_.begin(), cost_map_.end(), 0.0);
+
+        min_range_ = origin_;
+        max_range_ = origin_ + map_size_3d_;
+
         inflate_point_cloud();
     }
 
@@ -143,20 +126,9 @@ namespace global_planner
     void Occupy_map::inflate_point_cloud(void)
     {
 
-        // cout << BLUE << "22222 " << TAIL <<endl;
-
-        if (!has_global_point)
-        {
-            return;
-        }
-
-        if (get_gpcl)
-        {
-            // occupancy_buffer_清零，不需要清0
-            fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
-            fill(cost_map_.begin(), cost_map_.end(), 0.0);
-        }
-
+        fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
+        fill(cost_map_.begin(), cost_map_.end(), 0.0);
+        
         // 记录开始时间
         rclcpp::Time time_start = node_->now();
 
@@ -228,10 +200,7 @@ namespace global_planner
             cout << YELLOW << "Occupy map: inflate global point take " << (node_->now() - time_start).seconds() << " [s]. " << TAIL << endl;
             exec_num = 0;
         }
-        else if (get_gpcl)
-        {
-            // cout << YELLOW << "Occupy map: inflate global point take " << (ros::Time::now()-time_start).toSec() <<" [s]. " << TAIL <<endl;
-        }
+
     }
 
     void Occupy_map::pub_pcl_cb()
@@ -292,7 +261,6 @@ namespace global_planner
     {
         // min_range就是原点，max_range就是原点+地图尺寸
         // 比如设置0,0,0为原点，[0,0,0]点会被判断为不在地图里
-        // 　同时　对于２Ｄ情况，超出飞行高度的数据也会认为不在地图内部
         if (pos(0) < min_range_(0) + 1e-4 || pos(1) < min_range_(1) + 1e-4 || pos(2) < min_range_(2) + 1e-4)
         {
             return false;

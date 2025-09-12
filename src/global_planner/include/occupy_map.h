@@ -8,6 +8,8 @@
 #include <Eigen/Eigen>
 
 #include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/common.h>
+#include <pcl/io/pcd_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/kdtree/kdtree_flann.h>
@@ -71,7 +73,7 @@ class Occupy_map
         //初始化
         void init(rclcpp::Node::SharedPtr node);
         // 地图更新函数 - 输入：全局点云
-        void map_update_gpcl(const std::shared_ptr<const sensor_msgs::msg::PointCloud2> & global_point);
+        void map_update_gpcl(const pcl::PointCloud<pcl::PointXYZ>::Ptr global_point);
         // 地图膨胀
         void inflate_point_cloud(void);
         // 判断当前点是否在地图内

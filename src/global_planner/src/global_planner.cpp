@@ -1,35 +1,27 @@
-#include "global_planner_ugv.h"
+#include "global_planner.h"
 
-namespace global_planner_ugv
+namespace global_planner
 {
     // 初始化函数
     void GlobalPlannerUGV::init()
     {
         // 读取参数
-        // 无人车编号 1号无人车则为1
-        ugv_id = this->declare_parameter<int>("global_planner_ugv.ugv_id", 1);
         // A星算法 重规划频率
-        replan_time = this->declare_parameter<double>("global_planner_ugv.replan_time", 1.0);
-        track_frequency = this->declare_parameter<double>("global_planner_ugv.track_frequency", 0.1);
-        pcd_path = this->declare_parameter<std::string>("global_planner_ugv/pcd_path", "");
+        pcd_path = this->declare_parameter<std::string>("global_planner/pcd_path", "");
         start_pos[0] = this->declare_parameter("start_pos_x", 0.0);
         start_pos[1] = this->declare_parameter("start_pos_y", 0.0);
         start_pos[2] = this->declare_parameter("start_pos_z", 0.0);
-        ugv_name = "/ugv" + std::to_string(ugv_id);
 
         // Astar algorithm
         Astar_ptr = std::make_shared<Astar>();
         Astar_ptr->init(this->shared_from_this());
 
-        RCLCPP_INFO(this->get_logger(), "Manual goal mode, subscribe to %s/prometheus/global_planner_ugv/goal", ugv_name.c_str());
-        goal_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>(
-            ugv_name + "/prometheus/global_planner_ugv/goal",
+        goal_sub = this->create_subscription<geometry_msgs::msg::PoseStamped>("/global_planner/goal",
             rclcpp::QoS(10),
             std::bind(&GlobalPlannerUGV::goal_cb, this, std::placeholders::_1));
 
         // 【发布】路径用于显示（rviz显示）
-        path_cmd_pub = this->create_publisher<nav_msgs::msg::Path>(
-            ugv_name + "/prometheus/global_planner_ugv/path_cmd",
+        path_cmd_pub = this->create_publisher<nav_msgs::msg::Path>("/global_planner/path_cmd",
             rclcpp::QoS(10));
 
         // 【定时器】主循环执行
@@ -43,7 +35,7 @@ namespace global_planner_ugv
             pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>());
             if (pcl::io::loadPCDFile<pcl::PointXYZ>(pcd_path, *cloud) == -1)
             {
-                RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'global_planner_ugv/pcd_path'.");
+                RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'global_planner/pcd_path'.");
                 rclcpp::shutdown();
                 return;
             }
@@ -64,12 +56,7 @@ namespace global_planner_ugv
             exec_state = EXEC_STATE::INIT;
             get_goal = false;
             path_ok = false;
-            in_return_mode = false;
-            rotate_in_place = false;
-            start_move = false;
-            get_target_pos = false;
             counter_search = 0;
-            yaw_ref = 0.0;
         }
     }
 
@@ -77,14 +64,10 @@ namespace global_planner_ugv
     {
         // 2D定高飞行
         goal_pos << msg->pose.position.x, msg->pose.position.y, msg->pose.position.z;
-        yaw_ref = msg->pose.orientation.w;
-        goal_vel.setZero();
 
         get_goal = true;
-        rotate_in_place = true;
-        start_move = false;
 
-        cout << GREEN << ugv_name + " Global_Planner_UGV: Get a new manual goal: [" << goal_pos(0) << ", " << goal_pos(1) << ", " << goal_pos(2) << " ]" << TAIL << endl;
+        cout << GREEN << " Global_Planner_UGV: Get a new manual goal: [" << goal_pos(0) << ", " << goal_pos(1) << ", " << goal_pos(2) << " ]" << TAIL << endl;
     }
 
     // 主循环
@@ -98,9 +81,6 @@ namespace global_planner_ugv
         case EXEC_STATE::INIT:
 
             rclcpp::sleep_for(std::chrono::seconds(1));
-            // 起点位置设置为返航点
-            return_pos = start_pos;
-            cout << GREEN << ugv_name + " Global_Planner_UGV: Return point is set as:" << return_pos(0) << ", " << return_pos(1) << ", " << return_pos(2) << TAIL << endl;
             exec_state = EXEC_STATE::WAIT_GOAL;
             break;
 
@@ -113,7 +93,7 @@ namespace global_planner_ugv
             {
                 if (exec_num == 100)
                 {
-                    cout << YELLOW << ugv_name + " Global_Planner_UGV: Waiting for a new goal, subscirbe to " << ugv_name << "/prometheus/global_planner_ugv/goal" << TAIL << endl;
+                    cout << YELLOW << " Global_Planner_UGV: Waiting for a new goal, subscirbe to  /global_planner/goal" << TAIL << endl;
                 }
             }
             else
@@ -142,21 +122,16 @@ namespace global_planner_ugv
                     counter_search = 0;
                 }
                 counter_search++;
-                cout << RED << ugv_name + " Global_Planner_UGV: Main loop Planning [ Planner can't find path ]" << TAIL << endl;
+                cout << RED << " Global_Planner_UGV: Main loop Planning [ Planner can't find path ]" << TAIL << endl;
             }
             else
             {
                 path_ok = true;
                 counter_search = 0;
                 path_cmd = Astar_ptr->get_ros_path();
-                // 路径中航点数目
-                Num_total_wp = path_cmd.poses.size();
-                cur_id = 1;
-                tra_start_time = this->now();
 
                 // 发布路劲用于rviz显示
                 path_cmd_pub->publish(path_cmd);
-                // cout << GREEN << ugv_name + " Global_Planner_UGV: Main loop Planning [ Get a new path ]" << TAIL <<endl;
             }
 
             break;
@@ -175,13 +150,13 @@ namespace global_planner_ugv
         switch (exec_state)
         {
         case EXEC_STATE::INIT:
-            cout << GREEN << ugv_name + " Global_Planner_UGV: Main loop Exec_state: [ INIT ]." << TAIL << endl;
+            cout << GREEN << " Global_Planner_UGV: Main loop Exec_state: [ INIT ]." << TAIL << endl;
             break;
         case EXEC_STATE::WAIT_GOAL:
-            cout << GREEN << ugv_name + " Global_Planner_UGV: Main loop Exec_state: [ WAIT_GOAL ]." << TAIL << endl;
+            cout << GREEN << " Global_Planner_UGV: Main loop Exec_state: [ WAIT_GOAL ]." << TAIL << endl;
             break;
         case EXEC_STATE::PLAN:
-            cout << GREEN << ugv_name + " Global_Planner_UGV: Main loop Exec_state: [ PLAN ]." << TAIL << endl;
+            cout << GREEN << " Global_Planner_UGV: Main loop Exec_state: [ PLAN ]." << TAIL << endl;
             break;
         }
     }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(global_planner_ugv)
+project(global_planner)
 
 
 find_package(ament_cmake REQUIRED)
@@ -41,9 +41,9 @@ ament_target_dependencies(occupy_map
 add_library(A_star src/A_star.cpp)
 target_link_libraries(A_star occupy_map)
 
-add_library(global_planner_ugv src/global_planner_ugv.cpp)
-target_link_libraries(global_planner_ugv A_star ${PCL_LIBRARIES})
-ament_target_dependencies(global_planner_ugv
+add_library(global_planner src/global_planner.cpp)
+target_link_libraries(global_planner A_star ${PCL_LIBRARIES})
+ament_target_dependencies(global_planner
     angles
     rclcpp
     sensor_msgs
@@ -52,9 +52,9 @@ ament_target_dependencies(global_planner_ugv
 )
 
 # 节点
-add_executable(global_planner_ugv_node src/global_planner_ugv_node.cpp)
-target_link_libraries(global_planner_ugv_node global_planner_ugv ${PCL_LIBRARIES})
-ament_target_dependencies(global_planner_ugv_node
+add_executable(global_planner_node src/global_planner_node.cpp)
+target_link_libraries(global_planner_node global_planner ${PCL_LIBRARIES})
+ament_target_dependencies(global_planner_node
     rclcpp
     std_msgs
     sensor_msgs
@@ -67,11 +67,11 @@ ament_target_dependencies(global_planner_ugv_node
 
 # 安装节点可执行文件
 install(TARGETS 
-  global_planner_ugv
-  global_planner_ugv_node
+  global_planner
+  global_planner_node
   occupy_map
   A_star
-  EXPORT export_global_planner_ugv_lib
+  EXPORT export_global_planner_lib
  DESTINATION lib/${PROJECT_NAME} # 对库来说可以省
 )
 
@@ -81,6 +81,9 @@ install(DIRECTORY include/
 install(DIRECTORY launch
     DESTINATION share/${PROJECT_NAME}/
 )
+install(DIRECTORY rviz
+    DESTINATION share/${PROJECT_NAME}/
+)
 ament_export_include_directories(include)
-ament_export_targets(export_global_planner_ugv_lib HAS_LIBRARY_TARGET)
+ament_export_targets(export_global_planner_lib HAS_LIBRARY_TARGET)
 ament_package()

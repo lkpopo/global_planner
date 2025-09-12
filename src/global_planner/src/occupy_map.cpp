@@ -1,16 +1,13 @@
 #include <occupy_map.h>
 
-namespace global_planner_ugv
+namespace global_planner
 {
     // 初始化函数
     void Occupy_map::init(rclcpp::Node::SharedPtr node)
     {
         node_ = node;
         // ---------------- 参数读取 ----------------
-        ugv_id = node->declare_parameter<int>("global_planner_ugv/ugv_id", 0);
-        ugv_height = node->declare_parameter<double>("global_planner_ugv/ugv_height", 0.1);
-        odom_inflate_ = node->declare_parameter<double>("global_planner_ugv/odom_inflate", 0.6);
-        cost_inflate = node->declare_parameter<int>("global_planner_ugv/cost_inflate", 5);
+        cost_inflate = node->declare_parameter<int>("global_planner/cost_inflate", 5);
 
         origin_(0) = node->declare_parameter<double>("map/origin_x", -5.0);
         origin_(1) = node->declare_parameter<double>("map/origin_y", -5.0);
@@ -20,20 +17,14 @@ namespace global_planner_ugv
         map_size_3d_(1) = node->declare_parameter<double>("map/map_size_y", 100.0);
         map_size_3d_(2) = node->declare_parameter<double>("map/map_size_z", 20.0);
 
-        queue_size = node->declare_parameter<int>("map/queue_size", -1);
-        show_border = node->declare_parameter<bool>("map/border", false);
         inflate_ = node->declare_parameter<double>("map/inflate", 0.3);
 
         node->get_parameter<double>("map/resolution", resolution_);
 
-        ugv_name = "/ugv" + std::to_string(ugv_id);
-
         // 发布 地图rviz显示
-        global_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            ugv_name + "/planning/global_pcl", 10);
+        global_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/global_planner/global_pcl", 10);
         // 发布膨胀后的点云
-        inflate_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>(
-            ugv_name + "/planning/global_inflate_pcl", 10);
+        inflate_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/global_planner/global_inflate_pcl", 10);
 
         // 主循环执行定时器
         pcl_pub_timer_ = node->create_wall_timer(
@@ -42,17 +33,10 @@ namespace global_planner_ugv
 
         // 全局地图点云指针
         global_point_cloud_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        global_ugv_pcl.reset(new pcl::PointCloud<pcl::PointXYZ>);
         // 膨胀点云指针
         cloud_inflate_vis_.reset(new pcl::PointCloud<pcl::PointXYZ>);
         // 传入点云指针（临时指针）
         input_point_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        // tf变换后点云指针（临时指针）
-        transformed_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        // 过滤后点云指针（临时指针）
-        pcl_ptr.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        // 存储的上一帧odom
-        f_x = f_y = f_z = f_pitch = f_yaw = f_roll = 0.0;
 
         this->inv_resolution_ = 1.0 / resolution_;
         for (int i = 0; i < 3; ++i)
@@ -70,104 +54,71 @@ namespace global_planner_ugv
         min_range_ = origin_;
         max_range_ = origin_ + map_size_3d_;
 
-        // min_range_(2) = ugv_height - 2 * resolution_;
-        // max_range_(2) = ugv_height + 2 * resolution_;
         get_gpcl = false;
-        get_lpcl = false;
-        get_laser = false;
         // 生成地图边界：点云形式
         double dist = 0.1;                                      // 每多少距离一个点
         int numdist_x = (max_range_(0) - min_range_(0)) / dist; // x的点数
         int numdist_y = (max_range_(1) - min_range_(1)) / dist; // y的点数
         int numdist = 2 * (numdist_x + numdist_y);              // 总点数
-        border.width = numdist;
-        border.height = 1;
-        border.points.resize(numdist);
-
-        inflate_index_ugv = 0;
-        ifn = ceil(odom_inflate_ * inv_resolution_);
-        for (int x = -ifn; x <= ifn; x++)
-            for (int y = -ifn; y <= ifn;)
-            {
-                enum_p_ugv[inflate_index_ugv++] << x * resolution_, y * resolution_, 0.0;
-                if (x == -ifn || x == ifn)
-                    y++;
-                else
-                    y += 2 * ifn;
-            }
-
-        for (int x = -ifn - 1; x <= ifn + 1; x++)
-            for (int y = -ifn - 1; y <= ifn + 1;)
-            {
-                enum_p_ugv[inflate_index_ugv++] << x * resolution_, y * resolution_, 0.0;
-                if (x == -ifn - 1 || x == ifn + 1)
-                    y++;
-                else
-                    y += 2 * ifn + 2;
-            }
 
         // 膨胀格子数 = 膨胀距离/分辨率
         // ceil返回大于或者等于指定表达式的最小整数
         ifn = ceil(inflate_ * inv_resolution_);
 
         inflate_index = 0;
+        // 三维关键点膨胀
         for (int x = -ifn; x <= ifn; x++)
+        {
             for (int y = -ifn; y <= ifn;)
             {
-                enum_p[inflate_index++] << x * resolution_, y * resolution_, 0.0;
+                for (int z = -ifn; z <= ifn;)
+                {
+                    // 只取关键点，不全填充
+                    enum_p[inflate_index++] << x * resolution_, y * resolution_, z * resolution_;
+
+                    // Z方向跳跃策略
+                    if (z == -ifn || z == ifn)
+                        z++;
+                    else
+                        z += 2 * ifn;
+                }
+                // Y方向跳跃策略
                 if (x == -ifn || x == ifn)
                     y++;
                 else
                     y += 2 * ifn;
             }
+        }
 
         cost_index = 0;
-        // for(int x = -cost_inflate; x <= cost_inflate; x++)
-        //     for(int y = -cost_inflate; y <= cost_inflate; y++)
-        //     {
-        //         int tmp_dis = x*x + y*y;
-        //         if(tmp_dis <= cost_inflate*cost_inflate)
-        //         {
-        //             enum_p_cost[cost_index++] << x*resolution_, y*resolution_, tmp_dis;
-        //         }
 
-        //     }
         for (int x = -ifn - cost_inflate; x <= ifn + cost_inflate; x++)
+        {
             for (int y = -ifn - cost_inflate; y <= ifn + cost_inflate;)
             {
-                int tmp_dis = x * x + y * y;
-                if (tmp_dis <= (ifn + cost_inflate) * (ifn + cost_inflate))
+                for (int z = -ifn - cost_inflate; z <= ifn + cost_inflate;)
                 {
-                    enum_p_cost[cost_index++] << x * resolution_, y * resolution_, tmp_dis;
+                    int tmp_dis = x * x + y * y + z * z;
+                    if (tmp_dis <= (ifn + cost_inflate) * (ifn + cost_inflate))
+                    {
+                        enum_p_cost[cost_index++] << x * resolution_, y * resolution_, z * resolution_;
+                    }
+
+                    // Z方向跳跃策略
+                    if (z == -ifn - cost_inflate || z == ifn + cost_inflate)
+                        z++;
+                    else
+                        z += 2 * ifn + 2 * cost_inflate;
                 }
+
+                // Y方向跳跃策略
                 if (x == -ifn - cost_inflate || x == ifn + cost_inflate)
                     y++;
                 else
                     y += 2 * ifn + 2 * cost_inflate;
             }
+        }
         printf("cost map %d %d\n", cost_inflate, cost_index);
-
-        for (int i = 0; i < numdist_x; i++) // x边界
-        {
-            border.points[i].x = min_range_(0) + i * dist;
-            border.points[i].y = min_range_(1);
-            border.points[i].z = min_range_(2);
-
-            border.points[i + numdist_x].x = min_range_(0) + i * dist;
-            border.points[i + numdist_x].y = max_range_(1);
-            border.points[i + numdist_x].z = min_range_(2);
-        }
-
-        for (int i = 0; i < numdist_y; i++) // y边界
-        {
-            border.points[i + 2 * numdist_x].x = min_range_(0);
-            border.points[i + 2 * numdist_x].y = min_range_(1) + i * dist;
-            border.points[i + 2 * numdist_x].z = min_range_(2);
-
-            border.points[i + 2 * numdist_x + numdist_y].x = max_range_(0);
-            border.points[i + 2 * numdist_x + numdist_y].y = min_range_(1) + i * dist;
-            border.points[i + 2 * numdist_x + numdist_y].z = min_range_(2);
-        }
     }
 
     // 地图更新函数 - 输入：全局点云
@@ -188,6 +139,7 @@ namespace global_planner_ugv
 
     // 当global_planning节点接收到点云消息更新时，进行设置点云指针并膨胀
     // Astar规划路径时，采用的是此处膨胀后的点云（setOccupancy只在本函数中使用）
+    // 路径规划的时候是用的occupancy_buffer_，cloud_inflate_vis_仅用作显示点云数据查看
     void Occupy_map::inflate_point_cloud(void)
     {
 
@@ -201,12 +153,6 @@ namespace global_planner_ugv
         if (get_gpcl)
         {
             // occupancy_buffer_清零，不需要清0
-            fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
-            fill(cost_map_.begin(), cost_map_.end(), 0.0);
-        }
-        else if (queue_size > 0)
-        {
-            // queue_size设置为大于0时，代表仅使用过去一定数量的点云
             fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
             fill(cost_map_.begin(), cost_map_.end(), 0.0);
         }
@@ -226,14 +172,6 @@ namespace global_planner_ugv
 
         pcl::PointXYZ pt_inf;
         Eigen::Vector3d p3d, p3d_inf, p3d_cost;
-
-        for (int i = 0; i < global_ugv_pcl->points.size(); i++)
-        {
-            p3d_inf(0) = global_ugv_pcl->points[i].x;
-            p3d_inf(1) = global_ugv_pcl->points[i].y;
-            p3d_inf(2) = global_ugv_pcl->points[i].z;
-            this->setOccupancy(p3d_inf, 1); // set to 1
-        }
 
         // 遍历全局点云中的所有点
         for (size_t i = 0; i < latest_global_cloud_.points.size(); ++i)
@@ -277,23 +215,7 @@ namespace global_planner_ugv
                 cloud_inflate_vis_->push_back(pt_inf);
                 // 设置膨胀后的点被占据（不管他之前是否被占据）
                 this->setOccupancy(p3d_inf, 1);
-
-                // cost map update
-                // for(int j = 0; j < cost_index; j++)
-                // {
-                //     p3d_cost(0) = p3d_inf(0) + enum_p_cost[j](0);
-                //     p3d_cost(1) = p3d_inf(1) + enum_p_cost[j](1);
-                //     p3d_cost(2) = p3d_inf(2);
-                //     this->updateCostMap(p3d_cost,1.0/enum_p_cost[j](2));
-                // }
             }
-        }
-
-        *cloud_inflate_vis_ += *global_ugv_pcl;
-        // 加上border,仅用作显示作用
-        if (show_border)
-        {
-            *cloud_inflate_vis_ += border;
         }
 
         static int exec_num = 0;
@@ -382,50 +304,6 @@ namespace global_planner_ugv
         }
 
         return true;
-    }
-
-    bool Occupy_map::check_safety(Eigen::Vector3d &pos, double check_distance)
-    {
-        if (!isInMap(pos))
-        {
-            // 当前位置点不在地图内
-            // cout << RED << "Occupy map, the odom point is not in map"  << TAIL <<endl;
-            return 0;
-        }
-        Eigen::Vector3i id;
-        posToIndex(pos, id);
-        Eigen::Vector3i id_occ;
-        Eigen::Vector3d pos_occ;
-
-        int check_dist_xy = int(check_distance / resolution_);
-        int check_dist_z = 0;
-        int cnt = 0;
-        for (int ix = -check_dist_xy; ix <= check_dist_xy; ix++)
-        {
-            for (int iy = -check_dist_xy; iy <= check_dist_xy; iy++)
-            {
-                for (int iz = -check_dist_z; iz <= check_dist_z; iz++)
-                {
-                    id_occ(0) = id(0) + ix;
-                    id_occ(1) = id(1) + iy;
-                    id_occ(2) = id(2) + iz;
-                    indexToPos(id_occ, pos_occ);
-                    if (!isInMap(pos_occ))
-                    {
-                        return 0;
-                    }
-                    if (getOccupancy(id_occ))
-                    {
-                        cnt++;
-                    }
-                }
-            }
-        }
-        if (cnt > 5)
-        {
-            return 0;
-        }
-        return 1;
     }
 
     void Occupy_map::posToIndex(Eigen::Vector3d &pos, Eigen::Vector3i &id)

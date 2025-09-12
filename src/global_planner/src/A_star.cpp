@@ -3,7 +3,7 @@
 using namespace std;
 using namespace Eigen;
 
-namespace global_planner_ugv
+namespace global_planner
 {
 
   Astar::~Astar()
@@ -94,7 +94,7 @@ namespace global_planner_ugv
     cur_node->position = start_pt;
     cur_node->index = posToIndex(start_pt);
     cur_node->g_score = 0.0;
-    cur_node->f_score = lambda_heu_ * getEuclHeu(cur_node->position, end_pt);
+    cur_node->f_score = lambda_heu_ * getManhHeu(cur_node->position, end_pt);
     cur_node->node_state = IN_OPEN_SET;
 
     // 将当前点推入open set
@@ -187,7 +187,7 @@ namespace global_planner_ugv
             // 如果能通过上述检查则
             double tmp_g_score, tmp_f_score;
             tmp_g_score = d_pos.squaredNorm() + cur_node->g_score;
-            tmp_f_score = tmp_g_score + lambda_heu_ * getEuclHeu(expand_node_pos, end_pt) + lambda_cost_ * Occupy_map_ptr->getCost(expand_node_pos);
+            tmp_f_score = tmp_g_score + lambda_heu_ * getManhHeu(expand_node_pos, end_pt) + lambda_cost_ * Occupy_map_ptr->getCost(expand_node_pos);
 
             // 如果扩展的当前节点为NULL，即未扩展过
             if (expand_node == NULL)
@@ -250,6 +250,7 @@ namespace global_planner_ugv
     reverse(path_nodes_.begin(), path_nodes_.end());
 
     // 直接在这里生成路径？
+    path_nodes_ = prunePathLineOfSight(path_nodes_, Occupy_map_ptr);
   }
 
   std::vector<Eigen::Vector3d> Astar::getPath()
@@ -355,12 +356,66 @@ namespace global_planner_ugv
       pos(i) = (id(i) + 0.5) * resolution_ + origin_(i);
   }
 
-  // 检查cur_pos是否安全
-  bool Astar::check_safety(Eigen::Vector3d &cur_pos, double safe_distance)
+  bool Astar::lineCollisionFree(const Occupy_map::Ptr &map_ptr,
+                                const Eigen::Vector3d &p0,
+                                const Eigen::Vector3d &p1,
+                                double step)
   {
-    bool is_safety;
-    is_safety = Occupy_map_ptr->check_safety(cur_pos, safe_distance);
-    return is_safety;
+    Eigen::Vector3d dir = p1 - p0;
+    double len = dir.norm();
+    if (len < 1e-6)
+      return true;
+    dir /= len;
+    int n = std::max(1, static_cast<int>(std::ceil(len / step)));
+    for (int i = 0; i <= n; ++i)
+    {
+      double t = static_cast<double>(i) / n;
+      Eigen::Vector3d p = p0 + dir * (t * len);
+      if (!map_ptr->isInMap(p))
+        return false; // out of map -> treat as collision
+      if (map_ptr->getOccupancy(p) != 0)
+        return false; // occupied
+    }
+    return true;
   }
 
+  std::vector<NodePtr> Astar::prunePathLineOfSight(const std::vector<NodePtr> &raw_path,
+                                                   const Occupy_map::Ptr &map_ptr)
+  {
+    std::vector<NodePtr> out;
+    if (raw_path.empty())
+      return out;
+
+    const double step = std::max(map_ptr->resolution_ * 0.5, 0.05); // 采样步长
+
+    size_t i = 0;
+    while (i < raw_path.size())
+    {
+      // 尝试把 i 直接连到最远的 j
+      size_t j = raw_path.size() - 1;
+      bool found = false;
+      for (; j > i; --j)
+      {
+        if (lineCollisionFree(map_ptr, raw_path[i]->position, raw_path[j]->position, step))
+        {
+          out.push_back(raw_path[i]);
+          i = j;
+          found = true;
+          break;
+        }
+      }
+      if (!found)
+      {
+        // 兜底情况
+        out.push_back(raw_path[i]);
+        ++i;
+      }
+    }
+    // 保证最后点是目标
+    if (!out.empty() && (out.back()->position - raw_path.back()->position).norm() > 1e-6)
+    {
+      out.push_back(raw_path.back());
+    }
+    return out;
+  }
 }

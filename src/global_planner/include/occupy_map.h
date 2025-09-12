@@ -25,7 +25,7 @@
 #include "printf_utils.h"
 using namespace std;
 
-namespace global_planner_ugv
+namespace global_planner
 {
 
 class Occupy_map
@@ -40,25 +40,10 @@ class Occupy_map
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_inflate_vis_;
         // 临时指针
         pcl::PointCloud<pcl::PointXYZ>::Ptr input_point_cloud;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr transformed_cloud;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_ptr;
+
         // 地图边界点云
         pcl::PointCloud<pcl::PointXYZ> border;
-        // VoxelGrid过滤器用于下采样
-        pcl::VoxelGrid<pcl::PointXYZ> vg;
-        // OutlierRemoval用于去除离群值
-	    pcl::StatisticalOutlierRemoval<pcl::PointXYZ> sor;
-        // laserscan2pointcloud2 中间变量
-        sensor_msgs::msg::PointCloud2 input_laser_scan;
-        // laserscan2pointcloud2 投影器
-        laser_geometry::LaserProjection projector_;
-        // 上一帧odom
-        double f_x, f_y, f_z, f_roll, f_pitch, f_yaw;
-        // 局部地图滑窗，指示器以及大小
-        int st_it, queue_size;
-        // flag：展示地图边界
-        bool show_border;
-        bool sim_mode;
+
         // 地图是否占据容器， 从编程角度来讲，这就是地图变为单一序列化后的索引
         std::vector<int> occupancy_buffer_;  // 0 is free, 1 is occupied
         // 代价地图
@@ -68,27 +53,21 @@ class Occupy_map
         string node_name;
         // 膨胀参数
         double inflate_;
-        double odom_inflate_;
         // 地图原点,地图尺寸
         Eigen::Vector3d origin_, map_size_3d_, min_range_, max_range_;
         // 占据图尺寸 = 地图尺寸 / 分辨率
         Eigen::Vector3i grid_size_;
-        int swarm_num_ugv;                                  // 集群数量
-        string ugv_name;                                // 无人机名字
-        int ugv_id;                                     // 无人机编号
         bool has_global_point;
-        bool get_gpcl,get_lpcl,get_laser;
-        Eigen::Vector3d enum_p[100], enum_p_ugv[1000], enum_p_cost[1000];
+        bool get_gpcl;
+        Eigen::Vector3d enum_p[100], enum_p_cost[1000];
         int ifn;
-        int inflate_index, inflate_index_ugv, cost_index, cost_inflate;
+        int inflate_index, cost_index, cost_inflate;
         // 发布点云用于rviz显示
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr global_pcl_pub_;
         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr inflate_pcl_pub_;
         rclcpp::TimerBase::SharedPtr pcl_pub_timer_;
         rclcpp::Node::SharedPtr node_;
 
-
-        double ugv_height;
         //初始化
         void init(rclcpp::Node::SharedPtr node);
         // 地图更新函数 - 输入：全局点云
@@ -111,8 +90,6 @@ class Occupy_map
         int getOccupancy(Eigen::Vector3i &id);
         // 根据索引返回代价
         double getCost(Eigen::Vector3d &pos);
-        // 检查安全
-        bool check_safety(Eigen::Vector3d &pos, double check_distance/*, Eigen::Vector3d& map_point*/);
         // void pub_pcl_cb(const ros::TimerEvent& e);
         void pub_pcl_cb();
 

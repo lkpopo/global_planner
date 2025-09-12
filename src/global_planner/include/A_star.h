@@ -16,7 +16,7 @@
 
 using namespace std;
 
-namespace global_planner_ugv
+namespace global_planner
 {
 
 #define IN_CLOSE_SET 'a'
@@ -116,7 +116,6 @@ class Astar
         // 最终路径点容器
         std::vector<NodePtr> path_nodes_;  
         string node_name;
-        string ugv_name;
 
         // 参数
         // 启发式参数
@@ -137,8 +136,6 @@ class Astar
         Eigen::Vector3d origin_, map_size_3d_;
         bool has_global_point;
 
-        //打印颜色设置
-        string red, green, yellow, tail;
 
         // 辅助函数
         Eigen::Vector3i posToIndex(Eigen::Vector3d pt);
@@ -167,8 +164,6 @@ class Astar
         void reset();
         // 初始化
         void init(rclcpp::Node::SharedPtr node);
-        // 检查安全性
-        bool check_safety(Eigen::Vector3d &cur_pos, double safe_distance);
         // 搜索
         int search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
         // 返回路径
@@ -178,6 +173,14 @@ class Astar
         // 返回访问过的节点
         std::vector<NodePtr> getVisitedNodes();
 
+        // 检查两点直线段上是否有障碍
+        bool lineCollisionFree(const Occupy_map::Ptr &map_ptr,
+                               const Eigen::Vector3d &p0,
+                               const Eigen::Vector3d &p1,
+                               double step);
+        // 简化路径：输入原始路径（按顺序从起点到终点），返回精简后的路径
+        std::vector<NodePtr> prunePathLineOfSight(const std::vector<NodePtr> &raw_path,
+                                                          const Occupy_map::Ptr &map_ptr);
         typedef std::shared_ptr<Astar> Ptr;
 
 };

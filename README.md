@@ -9,6 +9,6 @@ ROS2版本的基于A*的全局路径规划，在planner_launch.py中设置相关
 通过如下命令可以手动的设定终点的坐标，然后打开rviz2订阅相关内容即可查看。
 
 ```bash
-ros2 topic pub /ugv1/prometheus/global_planner_ugv/goal geometry_msgs/PoseStamped "{header: {frame_id: 'map'}, pose: {position: {x: 10.0, y: 12.0, z: 0.5}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"
+ros2 topic pub /global_planner/goal geometry_msgs/PoseStamped "{header: {frame_id: 'map'}, pose: {position: {x: 10.0, y: -4.0, z: 5}, orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}}}"
 ```
 

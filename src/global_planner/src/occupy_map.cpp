@@ -8,9 +8,6 @@ namespace global_planner
         node_ = node;
         // ---------------- 参数读取 ----------------
         cost_inflate = node->declare_parameter<int>("global_planner/cost_inflate", 5);
-        origin_(0) = node->declare_parameter<double>("map/origin_x", 0.0);
-        origin_(1) = node->declare_parameter<double>("map/origin_y", 0.0);
-        origin_(2) = node->declare_parameter<double>("map/origin_z", 0.0);
         inflate_ = node->declare_parameter<double>("map/inflate", 0.3);
         node->get_parameter<double>("map/resolution", resolution_);
 
@@ -98,6 +95,9 @@ namespace global_planner
         pcl::getMinMax3D(*global_point_cloud_map, min_pt, max_pt);
 
         // map 尺寸
+        origin_(0) = min_pt.x()-ifn;
+        origin_(1) = min_pt.y()-ifn;
+        origin_(2) = min_pt.z()-ifn;
         map_size_3d_(0) = max_pt.x() - min_pt.x();
         map_size_3d_(1) = max_pt.y() - min_pt.y();
         map_size_3d_(2) = max_pt.z() - min_pt.z();
@@ -105,7 +105,7 @@ namespace global_planner
         for (int i = 0; i < 3; ++i)
         {
             // 占据图尺寸 = 地图尺寸 / 分辨率
-            grid_size_(i) = ceil(map_size_3d_(i) / resolution_);
+            grid_size_(i) = ceil(ifn * map_size_3d_(i) / resolution_);
         }
 
         // 占据容器的大小 = 占据图尺寸 x*y*z
@@ -126,9 +126,6 @@ namespace global_planner
     void Occupy_map::inflate_point_cloud(void)
     {
 
-        fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
-        fill(cost_map_.begin(), cost_map_.end(), 0.0);
-        
         // 记录开始时间
         rclcpp::Time time_start = node_->now();
 
@@ -205,6 +202,8 @@ namespace global_planner
 
     void Occupy_map::pub_pcl_cb()
     {
+        if(!global_point_cloud_map || global_point_cloud_map->points.size() == 0)
+            return;
         // 发布未膨胀点云
         sensor_msgs::msg::PointCloud2 global_env_;
         // 假设此时收到的就是全局pcl

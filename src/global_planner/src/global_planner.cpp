@@ -1,4 +1,6 @@
 #include "global_planner.h"
+#include <pcl/common/centroid.h>
+#include <pcl/common/common.h>
 
 namespace global_planner
 {
@@ -41,6 +43,17 @@ namespace global_planner
             }
             else
             {
+                Eigen::Vector4f centroid;
+                Eigen::Vector4f min_pt, max_pt;
+                pcl::getMinMax3D(*cloud, min_pt, max_pt);
+                pcl::compute3DCentroid(*cloud, centroid);
+                
+                for (auto &pt : cloud->points)
+                {
+                    pt.x -= centroid[0];
+                    pt.y -= centroid[1];
+                    pt.z -= min_pt.z() + 0.2; // 2D平面规划，z高度设为0.2米
+                }
                 // 更新到占据地图
                 Astar_ptr->Occupy_map_ptr->map_update_gpcl(cloud);
                 RCLCPP_INFO(this->get_logger(), "Global map initialized from PCD file.");

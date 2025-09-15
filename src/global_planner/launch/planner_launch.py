@@ -20,24 +20,19 @@ def generate_launch_description():
         name=["global_planner"],
         output="screen",
         parameters=[
-            {"map/origin_x": -20.0},
-            {"map/origin_y": -20.0},
+            {"map/origin_x": 0.0},
+            {"map/origin_y": 0.0},
             {"map/origin_z": 0.0},
-            {"map/map_size_x": 100.0},
-            {"map/map_size_y": 100.0},
-            {"map/map_size_z": 20.0},
             {"map/queue_size": 1},
-            {"map/border": True},
-            {"map/resolution": 0.3},
+            {"map/resolution": 0.2},
             {
-                "global_planner/pcd_path": "/home/dpf/Workspace/global_planner/test.pcd"
+                "global_planner/pcd_path": "/home/dpf/Workspace/global_planner/building.pcd"
             },
-            {"map/inflate": 0.3},
-            {"global_planner/cost_inflate": 2},
-            {"astar/lambda_cost": 10.0},
-            {"start_pos_x": 2.7},
-            {"start_pos_y": 2.0},
-            {"start_pos_z": 3.0},
+            {"map/inflate": 0.5},
+            {"global_planner/cost_inflate": 5},
+            {"start_pos_x": 0.0},
+            {"start_pos_y": 0.0},
+            {"start_pos_z": 8.0},
         ],
     )
 

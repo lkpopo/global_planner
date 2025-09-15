@@ -20,16 +20,11 @@ def generate_launch_description():
         name=["global_planner"],
         output="screen",
         parameters=[
-            {"map/origin_x": 0.0},
-            {"map/origin_y": 0.0},
-            {"map/origin_z": 0.0},
-            {"map/queue_size": 1},
             {"map/resolution": 0.2},
             {
                 "global_planner/pcd_path": "/home/dpf/Workspace/global_planner/building.pcd"
             },
             {"map/inflate": 0.5},
-            {"global_planner/cost_inflate": 5},
             {"start_pos_x": 0.0},
             {"start_pos_y": 0.0},
             {"start_pos_z": 8.0},

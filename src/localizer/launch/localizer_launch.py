@@ -12,20 +12,28 @@ def generate_launch_description():
         [FindPackageShare("localizer"), "config", "localizer.yaml"]
     )
 
-    lio_config_path = PathJoinSubstitution(
-        [FindPackageShare("fastlio2"), "config", "lio.yaml"]
-    )
+    # lio_config_path = PathJoinSubstitution(
+    #     [FindPackageShare("fastlio2"), "config", "lio.yaml"]
+    # )
     return launch.LaunchDescription(
         [
+            # launch_ros.actions.Node(
+            #     package="fastlio2",
+            #     namespace="fastlio2",
+            #     executable="lio_node",
+            #     name="lio_node",
+            #     output="screen",
+            #     parameters=[
+            #         {"config_path": lio_config_path.perform(launch.LaunchContext())}
+            #     ],
+            # ),
             launch_ros.actions.Node(
-                package="fastlio2",
-                namespace="fastlio2",
-                executable="lio_node",
-                name="lio_node",
+                package="rviz2",
+                namespace="localizer",
+                executable="rviz2",
+                name="rviz2",
                 output="screen",
-                parameters=[
-                    {"config_path": lio_config_path.perform(launch.LaunchContext())}
-                ],
+                arguments=["-d", rviz_cfg.perform(launch.LaunchContext())],
             ),
             launch_ros.actions.Node(
                 package="localizer",
@@ -40,14 +48,6 @@ def generate_launch_description():
                         )
                     }
                 ],
-            ),
-            launch_ros.actions.Node(
-                package="rviz2",
-                namespace="localizer",
-                executable="rviz2",
-                name="rviz2",
-                output="screen",
-                arguments=["-d", rviz_cfg.perform(launch.LaunchContext())],
             )
         ]
     )

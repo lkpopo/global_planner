@@ -13,6 +13,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+add_compile_definitions(SOPHUS_USE_BASIC_LOGGING)
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -24,6 +25,8 @@ find_package(tf2_ros REQUIRED)
 find_package(interface REQUIRED)
 find_package(PCL REQUIRED)
 find_package(pcl_conversions REQUIRED)
+find_package(livox_ros_driver2 REQUIRED)
+find_package(Sophus REQUIRED)
 
 find_package(Eigen3 REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -37,10 +40,15 @@ include_directories(
 
 
 set(SRC_LIST src/localizers/commons.cpp
-             src/localizers/icp_localizer.cpp)
+             src/localizers/icp_localizer.cpp
+             src/localizers/ikd_Tree.cpp
+             src/localizers/lidar_processor.cpp
+             src/localizers/imu_processor.cpp
+             src/localizers/ieskf.cpp
+             src/utils.cpp)
 
 add_executable(localizer_node src/localizer_node.cpp ${SRC_LIST})
-ament_target_dependencies(localizer_node rclcpp std_msgs sensor_msgs nav_msgs message_filters pcl_conversions tf2_ros geometry_msgs interface)
+ament_target_dependencies(localizer_node rclcpp std_msgs sensor_msgs nav_msgs message_filters pcl_conversions tf2_ros geometry_msgs interface livox_ros_driver2)
 target_link_libraries(localizer_node ${PCL_LIBRARIES}  yaml-cpp) 
 
 

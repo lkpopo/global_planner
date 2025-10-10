@@ -25,7 +25,19 @@ ros2 topic pub /global_planner/goal geometry_msgs/PoseStamped "{header: {frame_i
 
 ##### 2. ROS2版本的重定位
 
-由粗到细的两阶段ICP的重定位，非常依赖初始位置值的设定，但是目前满足我的需求。
+依赖于Sophus库，最新版本的sophus库依赖fmt，可以在CMakeLists.txt中添加add_compile_definitions(SOPHUS_USE_BASIC_LOGGING)去除，否则会报错
+
+```bash
+git clone https://github.com/strasdat/Sophus.git
+cd Sophus
+git checkout 1.22.10
+mkdir build && cd build
+cmake .. -DSOPHUS_USE_BASIC_LOGGING=ON
+make
+sudo make install
+```
+
+由粗到细的两阶段ICP的重定位，非常依赖初始位置值的设定，但是目前满足我的需求。定位融合了fastlio2的imu计算方式，将其整合到了一个节点当中。
 
 ###### 2.1启动
 
@@ -38,7 +50,7 @@ ros2 launch localizer localizer_launch.py
 设置你当前位置的初值，以及需要加载的全局点云的位置
 
 ```bash
-ros2 service call /localizer/relocalize interface/srv/Relocalize "{"pcd_path": "your_map.pcd", "x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pitch": 0.0, "roll": 0.0}"
+ros2 service call /localizer/relocalize interface/srv/Relocalize "{"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pitch": 0.0, "roll": 0.0}"
 ```
 
 设置完毕之后，你可以载着雷达四处跑，或者播放bag。中途你可以通过如下，命令检查当前的定位结果是否准确。
@@ -46,3 +58,4 @@ ros2 service call /localizer/relocalize interface/srv/Relocalize "{"pcd_path": "
 ```bash
 ros2 service call /localizer/relocalize_check interface/srv/IsValid "{"code": 0}"
 ```
+

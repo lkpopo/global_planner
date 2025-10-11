@@ -19,7 +19,6 @@
 #include "localizers/imu_processor.h"
 #include "localizers/lidar_processor.h"
 #include "interface/srv/relocalize.hpp"
-#include "interface/srv/is_valid.hpp"
 #include <yaml-cpp/yaml.h>
 
 #include <livox_ros_driver2/msg/custom_msg.hpp>
@@ -36,7 +35,6 @@ struct NodeState
     bool message_imu_received = false;
     bool message_lidar_received = false;
     bool service_received = false;
-    bool localize_success = false;
     rclcpp::Time last_send_tf_time = rclcpp::Clock().now();
     builtin_interfaces::msg::Time last_message_time;
     M3D last_r;                          // localmap_body_r
@@ -69,8 +67,6 @@ public:
 
         m_reloc_srv = this->create_service<interface::srv::Relocalize>("relocalize", std::bind(&LocalizerNode::relocCB, this, std::placeholders::_1, std::placeholders::_2));
 
-        m_reloc_check_srv = this->create_service<interface::srv::IsValid>("relocalize_check", std::bind(&LocalizerNode::relocCheckCB, this, std::placeholders::_1, std::placeholders::_2));
-
         m_map_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("map_cloud", 10);
         m_body_cloud_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("body_cloud", 10);
 
@@ -78,23 +74,21 @@ public:
 
         if (!pcd_path.empty())
         {
-            RCLCPP_INFO(this->get_logger(), "Loading static global map from PCD: %s", pcd_path.c_str());
             bool load_flag = m_localizer->loadMap(pcd_path);
             if (!load_flag)
             {
-                RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'pcd_path'.");
+                RCLCPP_FATAL(this->get_logger(), "Failed to load global map from PCD file!");
                 rclcpp::shutdown();
                 return;
             }
-            RCLCPP_INFO(this->get_logger(), "Global map initialized from PCD file.");
-            // publishMapCloud(rclcpp::Clock().now());
-        }
-        else
-        {
-            RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'pcd_path'.");
-            rclcpp::shutdown();
+            RCLCPP_INFO(this->get_logger(), "Global map initialized from PCD: %s", pcd_path.c_str());
+            sleep(1); // 防止rviz还没启动起来，接受不到点云
+            builtin_interfaces::msg::Time current_time = rclcpp::Clock().now();
+            publishMapCloud(current_time);
             return;
         }
+        RCLCPP_FATAL(this->get_logger(), "No PCD file path provided! Set parameter 'pcd_path'.");
+        rclcpp::shutdown();
     }
 
     // 从yaml文件中加载参数
@@ -214,11 +208,7 @@ public:
     void timerCB()
     {
         if (!syncPackage())
-        {
-            // RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 5000, "Waiting for IMU and Lidar data...");
             return;
-        }
-
         
         if (m_builder_status == BuilderStatus::IMU_INIT)
         {
@@ -246,7 +236,6 @@ public:
         m_state.last_t = V3D(kf->x().t_wi.x(), kf->x().t_wi.y(), kf->x().t_wi.z());
 
         CloudType::Ptr body_cloud = lidar_processor->transformCloud(m_package.cloud, kf->x().r_il, kf->x().t_il);
-        // RCLCPP_INFO(this->get_logger(), "body_cloud size before filtering: %zu", body_cloud->size());
         publishCloud(m_body_cloud_pub, body_cloud, m_package.cloud_end_time);
         
         //--------------------------------------------------------------------------------------
@@ -265,7 +254,7 @@ public:
 
         M4F initial_guess = M4F::Identity();
 
-        // 如果通过回调服务给定了初始位姿，就用给定的
+        // initial_guess第一次赋值是人为设置好的
         if (m_state.service_received)
         {
             std::lock_guard<std::mutex>(m_state.service_mutex);
@@ -292,15 +281,13 @@ public:
         bool result = m_localizer->align(initial_guess);
         if (result)
         {
-            // RCLCPP_INFO(this->get_logger(), "Localize Success");
             M3D map_body_r = initial_guess.block<3, 3>(0, 0).cast<double>();
             V3D map_body_t = initial_guess.block<3, 1>(0, 3).cast<double>();
             m_state.last_offset_r = map_body_r * current_local_r.transpose();
             m_state.last_offset_t = -map_body_r * current_local_r.transpose() * current_local_t + map_body_t;
-            if (!m_state.localize_success && m_state.service_received)
+            if (m_state.service_received)
             {
                 std::lock_guard<std::mutex>(m_state.service_mutex);
-                m_state.localize_success = true;
                 m_state.service_received = false;
             }
         }
@@ -364,7 +351,6 @@ public:
             m_state.initial_guess.block<3, 3>(0, 0) = (yaw_angle * roll_angle * pitch_angle).toRotationMatrix().cast<float>();
             m_state.initial_guess.block<3, 1>(0, 3) = V3F(x, y, z);
             m_state.service_received = true;
-            m_state.localize_success = false;
         }
 
         response->success = true;
@@ -372,22 +358,9 @@ public:
         return;
     }
 
-    // 重定位状态查询服务回调函数
-    void relocCheckCB(const std::shared_ptr<interface::srv::IsValid::Request> request, std::shared_ptr<interface::srv::IsValid::Response> response)
-    {
-        std::lock_guard<std::mutex>(m_state.service_mutex);
-        if (request->code == 1)
-            response->valid = true;
-        else
-            response->valid = m_state.localize_success;
-        return;
-    }
-
     // 发布全局地图点云
     void publishMapCloud(builtin_interfaces::msg::Time &time)
     {
-        // sleep(1); // 防止rviz还没启动起来，接受不到点云
-        
         CloudType::Ptr map_cloud = m_localizer->refineMap(); // 返回下采样后的点云，用于显示
         if (map_cloud->size() < 1)
         {
@@ -405,15 +378,11 @@ public:
     // 发布机体坐标系下的点云
     void publishCloud(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub, CloudType::Ptr cloud, const double &time)
     {
-        // RCLCPP_INFO(this->get_logger(), "===================");
         sensor_msgs::msg::PointCloud2 cloud_msg;
         pcl::toROSMsg(*cloud, cloud_msg);
-        // RCLCPP_INFO(this->get_logger(), "-------------------");
         cloud_msg.header.frame_id = "body";
         cloud_msg.header.stamp = Utils::getTime(time);
-        // RCLCPP_INFO(this->get_logger(), "++++++++++++++++++");
         pub->publish(cloud_msg);
-        // RCLCPP_INFO(this->get_logger(), "Publish body cloud, size: %zu", cloud->size());
     }
 
 private:
@@ -434,7 +403,6 @@ private:
     rclcpp::TimerBase::SharedPtr m_timer;
     std::shared_ptr<tf2_ros::TransformBroadcaster> m_tf_broadcaster;
     rclcpp::Service<interface::srv::Relocalize>::SharedPtr m_reloc_srv;
-    rclcpp::Service<interface::srv::IsValid>::SharedPtr m_reloc_check_srv;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_map_cloud_pub;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr m_body_cloud_pub;
 };

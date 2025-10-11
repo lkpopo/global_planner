@@ -53,9 +53,4 @@ ros2 launch localizer localizer_launch.py
 ros2 service call /localizer/relocalize interface/srv/Relocalize "{"x": 0.0, "y": 0.0, "z": 0.0, "yaw": 0.0, "pitch": 0.0, "roll": 0.0}"
 ```
 
-设置完毕之后，你可以载着雷达四处跑，或者播放bag。中途你可以通过如下，命令检查当前的定位结果是否准确。
-
-```bash
-ros2 service call /localizer/relocalize_check interface/srv/IsValid "{"code": 0}"
-```
-
+设置完毕之后，你可以载着雷达四处跑，或者播放bag。

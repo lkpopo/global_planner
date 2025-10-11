@@ -19,35 +19,35 @@ float sq_dist(const PointType &p1, const PointType &p2);
 
 struct Config
 {
-    std::string cloud_topic = "/livox/lidar";
-    std::string odom_topic = "/livox/imu";
-    std::string map_frame = "map";
-    std::string local_frame = "lidar";
-    double update_hz = 1.0;
+    std::string cloud_topic;
+    std::string odom_topic;
+    std::string map_frame;
+    std::string local_frame;
+    double update_hz;
 
-    int lidar_filter_num = 3;
-    double lidar_min_range = 0.5;
-    double lidar_max_range = 20.0;
-    double scan_resolution = 0.15;
-    double map_resolution = 0.3;
+    int lidar_filter_num;
+    double lidar_min_range;
+    double lidar_max_range;
+    double scan_resolution;
+    double map_resolution;
 
-    double cube_len = 300;
-    double det_range = 60;
-    double move_thresh = 1.5;
+    double cube_len;
+    double det_range;
+    double move_thresh;
 
-    double na = 0.01;
-    double ng = 0.01;
-    double nba = 0.0001;
-    double nbg = 0.0001;
-    int imu_init_num = 20;
-    int near_search_num = 5;
-    int ieskf_max_iter = 5;
-    bool gravity_align = true;
-    bool esti_il = false;
-    M3D r_il = M3D::Identity();
-    V3D t_il = V3D::Zero();
+    double na;
+    double ng;
+    double nba;
+    double nbg;
+    int imu_init_num;
+    int near_search_num;
+    int ieskf_max_iter;
+    bool gravity_align;
+    bool esti_il;
+    M3D r_il;
+    V3D t_il;
 
-    double lidar_cov_inv = 1000.0;
+    double lidar_cov_inv;
 };
 
 struct IMUData

@@ -5,20 +5,6 @@ map_frame: map
 local_frame: lidar
 update_hz: 1.0
 
-rough_scan_resolution: 0.25
-rough_map_resolution: 0.25
-rough_max_iteration: 5
-rough_score_thresh: 0.2
-
-refine_scan_resolution: 0.1
-refine_map_resolution: 0.1
-refine_max_iteration: 10
-refine_score_thresh: 0.1
-
-
-
-print_time_cost: false
-
 lidar_filter_num: 6
 lidar_min_range: 0.5
 lidar_max_range: 30.0
@@ -45,3 +31,13 @@ r_il: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
 t_il: [-0.011, -0.02329, 0.04412]
 
 lidar_cov_inv: 1000.0
+
+rough_scan_resolution: 0.25
+rough_map_resolution: 0.25
+rough_max_iteration: 5
+rough_score_thresh: 0.2
+
+refine_scan_resolution: 0.1
+refine_map_resolution: 0.1
+refine_max_iteration: 10
+refine_score_thresh: 0.1

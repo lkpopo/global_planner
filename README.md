@@ -54,3 +54,11 @@ ros2 service call /localizer/relocalize interface/srv/Relocalize "{"x": 0.0, "y"
 ```
 
 设置完毕之后，你可以载着雷达四处跑，或者播放bag。
+
+#### 仓库未来要实现的功能
+
+1. slam同时定位于与地图构建，并提供可修改接口（预计基于glim框架修改）
+2. 多版本的重定位算法实现，提供接口
+3. 三维空间的路径规划或者航线规划
+4. 控制系统GUI
+

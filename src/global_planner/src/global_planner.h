@@ -4,6 +4,8 @@
 #include <iostream>
 #include <algorithm>
 #include <iostream>
+#include <pcl/common/centroid.h>
+#include <pcl/common/common.h>
 
 // #include "A_star.h"
 // #include "occupy_map.h"

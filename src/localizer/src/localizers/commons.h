@@ -53,9 +53,9 @@ struct Config
 struct IMUData
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-    V3D acc;
-    V3D gyro;
-    double time;
+    V3D acc; //线速度
+    V3D gyro; // 角速度
+    double time; // 时间戳
     IMUData() = default;
     IMUData(const V3D &a, const V3D &g, double &t) : acc(a), gyro(g), time(t) {}
 };

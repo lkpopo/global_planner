@@ -1,4 +1,4 @@
-pcd_path: /home/dpf/Workspace/global_planner/test_bak.pcd
+pcd_path: /home/zxhc/Workspace/ROS2_WS/global_planner/test_bak.pcd
 cloud_topic: /livox/lidar
 odom_topic: /livox/imu
 map_frame: map

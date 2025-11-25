@@ -15,15 +15,8 @@ namespace global_planner
     }
   }
 
-  void Astar::init(rclcpp::Node::SharedPtr node)
+  void Astar::init()
   {
-    auto nh = node;
-    node_ = node;
-    // 规划搜索相关参数 - 基本默认不修改
-    lambda_heu_ = nh->declare_parameter<double>("astar/lambda_heu", 2.0);
-    lambda_cost_ = nh->declare_parameter<double>("astar/lambda_cost", 300.0);
-    max_search_num = nh->declare_parameter<int>("astar/allocate_num", 100000);
-    resolution_ = nh->declare_parameter<double>("map/resolution", 0.2);
 
     tie_breaker_ = 1.0 + 1.0 / max_search_num;
 
@@ -43,7 +36,7 @@ namespace global_planner
 
     // 初始化占据地图
     Occupy_map_ptr.reset(new Occupy_map);
-    Occupy_map_ptr->init(nh);
+    Occupy_map_ptr->init();
 
     // 读取地图参数
     origin_ = Occupy_map_ptr->min_range_;
@@ -72,18 +65,14 @@ namespace global_planner
 
   // 搜索函数，输入为：起始点及终点
   // 将传输的数组通通变为指针！！！！ 以后改
-  int Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt)
+  bool Astar::search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt)
   {
     // 首先检查目标点是否可到达
     if (Occupy_map_ptr->getOccupancy(end_pt))
     {
-      cout << RED << "Astar search: [ Astar can't find path: goal point is occupied ]" << TAIL << endl;
-      return NO_PATH;
+      cout << "Astar search: [ Astar can't find path: goal point is occupied ]" << endl;
+      return false;
     }
-
-    // 计时
-    rclcpp::Clock clock;
-    rclcpp::Time time_astar_start = clock.now();
 
     goal_pos = end_pt;
     Eigen::Vector3i end_index = posToIndex(end_pt);
@@ -112,7 +101,7 @@ namespace global_planner
       // 获取f_score最低的点
       cur_node = open_set_.top();
 
-      // 判断终止条件
+      // 判断终止条件(当前点与终点距离小于等于一个单位时)
       bool reach_end = abs(cur_node->index(0) - end_index(0)) <= 1 &&
                        abs(cur_node->index(1) - end_index(1)) <= 1 &&
                        abs(cur_node->index(2) - end_index(2)) <= 1;
@@ -123,7 +112,7 @@ namespace global_planner
         terminate_node = cur_node;
         retrievePath(terminate_node);
 
-        return REACH_END;
+        return true;
       }
 
       /* ---------- pop node and add to close set ---------- */
@@ -207,8 +196,8 @@ namespace global_planner
               // 超过最大搜索次数
               if (use_node_num_ == max_search_num)
               {
-                cout << RED << "Astar search: [ Astar can't find path: reach the max_search_num ]" << TAIL << endl;
-                return NO_PATH;
+                cout << "Astar search: [ Astar can't find path: reach the max_search_num ]" << endl;
+                return false;
               }
             }
             // 如果当前节点已被扩展过，则更新其状态
@@ -230,8 +219,8 @@ namespace global_planner
 
     // 搜索完所有可行点，即使没达到最大搜索次数，也没有找到路径
     // 这种一般是因为无人机周围被占据，或者无人机与目标点之间无可通行路径造成的
-    cout << RED << "Astar search: [ Astar can't find path: max_search_num: open set empty ]" << TAIL << endl;
-    return NO_PATH;
+    cout << "Astar search: [ Astar can't find path: max_search_num: open set empty ]" << endl;
+    return false;
   }
 
   // 由最终点往回生成路径
@@ -253,41 +242,17 @@ namespace global_planner
     path_nodes_ = prunePathLineOfSight(path_nodes_, Occupy_map_ptr);
   }
 
-  std::vector<Eigen::Vector3d> Astar::getPath()
+  Path Astar::getPath()
   {
-    vector<Eigen::Vector3d> path;
+    Path path;
+    path.poses.reserve(path_nodes_.size());
+    
     for (uint i = 0; i < path_nodes_.size(); ++i)
     {
-      path.push_back(path_nodes_[i]->position);
+      Eigen::Vector3d v= path_nodes_[i]->position;
+      path.poses.emplace_back(Pose(v.x(),v.y(),v.z()));
     }
-    path.push_back(goal_pos);
-    return path;
-  }
-
-  nav_msgs::msg::Path Astar::get_ros_path()
-  {
-    nav_msgs::msg::Path path;
-
-    path.header.frame_id = "map";
-    path.header.stamp = node_->now();
-    path.poses.clear();
-
-    geometry_msgs::msg::PoseStamped path_i_pose;
-    for (uint i = 0; i < path_nodes_.size(); ++i)
-    {
-      path_i_pose.header.frame_id = "map";
-      path_i_pose.pose.position.x = path_nodes_[i]->position[0];
-      path_i_pose.pose.position.y = path_nodes_[i]->position[1];
-      path_i_pose.pose.position.z = path_nodes_[i]->position[2];
-      path.poses.push_back(path_i_pose);
-    }
-
-    path_i_pose.header.frame_id = "map";
-    path_i_pose.pose.position.x = goal_pos[0];
-    path_i_pose.pose.position.y = goal_pos[1];
-    path_i_pose.pose.position.z = goal_pos[2];
-    path.poses.push_back(path_i_pose);
-
+    path.poses.emplace_back(goal_pos.x(),goal_pos.y(),goal_pos.z());
     return path;
   }
 
@@ -356,6 +321,7 @@ namespace global_planner
       pos(i) = (id(i) + 0.5) * resolution_ + origin_(i);
   }
 
+  // 检查碰撞
   bool Astar::lineCollisionFree(const Occupy_map::Ptr &map_ptr,
                                 const Eigen::Vector3d &p0,
                                 const Eigen::Vector3d &p1,
@@ -379,6 +345,7 @@ namespace global_planner
     return true;
   }
 
+  // 优化规划好的路径，尽量走直线
   std::vector<NodePtr> Astar::prunePathLineOfSight(const std::vector<NodePtr> &raw_path,
                                                    const Occupy_map::Ptr &map_ptr)
   {

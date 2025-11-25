@@ -3,28 +3,12 @@
 namespace global_planner
 {
     // 初始化函数
-    void Occupy_map::init(rclcpp::Node::SharedPtr node)
+    void Occupy_map::init()
     {
-        node_ = node;
-        // ---------------- 参数读取 ----------------
-        cost_inflate = node->declare_parameter<int>("global_planner/cost_inflate", 5);
-        inflate_ = node->declare_parameter<double>("map/inflate", 0.3);
-        node->get_parameter<double>("map/resolution", resolution_);
-
-        // 发布 地图rviz显示
-        global_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/global_planner/global_pcl", 10);
-        // 发布膨胀后的点云
-        inflate_pcl_pub_ = node->create_publisher<sensor_msgs::msg::PointCloud2>("/global_planner/global_inflate_pcl", 10);
-
-        // 主循环执行定时器
-        pcl_pub_timer_ = node->create_wall_timer(
-            std::chrono::milliseconds(200),
-            std::bind(&Occupy_map::pub_pcl_cb, this));
-
         // 全局地图点云指针
         global_point_cloud_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
         // 膨胀点云指针
-        cloud_inflate_vis_.reset(new pcl::PointCloud<pcl::PointXYZ>);
+        // cloud_inflate_vis_.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
         this->inv_resolution_ = 1.0 / resolution_;
         
@@ -125,10 +109,6 @@ namespace global_planner
     // 路径规划的时候是用的occupancy_buffer_，cloud_inflate_vis_仅用作显示点云数据查看
     void Occupy_map::inflate_point_cloud(void)
     {
-
-        // 记录开始时间
-        rclcpp::Time time_start = node_->now();
-
         // 转化为PCL的格式进行处理
         pcl::PointCloud<pcl::PointXYZ> latest_global_cloud_ = *global_point_cloud_map;
 
@@ -137,7 +117,7 @@ namespace global_planner
             return;
         }
 
-        cloud_inflate_vis_->clear();
+        // cloud_inflate_vis_->clear();
 
         pcl::PointXYZ pt_inf;
         Eigen::Vector3d p3d, p3d_inf, p3d_cost;
@@ -181,7 +161,7 @@ namespace global_planner
                 pt_inf.x = p3d_inf(0);
                 pt_inf.y = p3d_inf(1);
                 pt_inf.z = p3d_inf(2);
-                cloud_inflate_vis_->push_back(pt_inf);
+                // cloud_inflate_vis_->push_back(pt_inf); // 暂时不需要可视化显示
                 // 设置膨胀后的点被占据（不管他之前是否被占据）
                 this->setOccupancy(p3d_inf, 1);
             }
@@ -194,28 +174,9 @@ namespace global_planner
         if (exec_num == 50)
         {
             // 膨胀地图效率与地图大小有关
-            cout << YELLOW << "Occupy map: inflate global point take " << (node_->now() - time_start).seconds() << " [s]. " << TAIL << endl;
             exec_num = 0;
         }
 
-    }
-
-    void Occupy_map::pub_pcl_cb()
-    {
-        if(!global_point_cloud_map || global_point_cloud_map->points.size() == 0)
-            return;
-        // 发布未膨胀点云
-        sensor_msgs::msg::PointCloud2 global_env_;
-        // 假设此时收到的就是全局pcl
-        pcl::toROSMsg(*global_point_cloud_map, global_env_);
-        global_env_.header.frame_id = "map";
-        global_pcl_pub_->publish(global_env_);
-
-        // 发布膨胀点云
-        sensor_msgs::msg::PointCloud2 map_inflate_vis;
-        pcl::toROSMsg(*cloud_inflate_vis_, map_inflate_vis);
-        map_inflate_vis.header.frame_id = "map";
-        inflate_pcl_pub_->publish(map_inflate_vis);
     }
 
     void Occupy_map::setOccupancy(Eigen::Vector3d &pos, int occ)

@@ -52,6 +52,7 @@ namespace localizer
     };
 
     using PoseCallback = std::function<void(const PoseStamped &)>;
+    using LogCallback = std::function<void(const std::string &)>;
 
     class Localizer
     {
@@ -69,6 +70,8 @@ namespace localizer
 
         /** 设置异步回调 */
         void setPoseCallback(PoseCallback cb);
+
+        void setLogCallback(LogCallback cb);
 
         /** 启动内部工作线程（可选）*/
         void startAsync();

@@ -5,12 +5,33 @@
 #include <algorithm>
 #include <iostream>
 #include <thread>
-#include "common.h"
+#include <yaml-cpp/yaml.h>
 
 using namespace std;
 
 namespace global_planner
 {
+  struct Vec3
+  {
+    float x, y, z;
+  };
+
+  struct Pose
+  {
+    Vec3 position;
+  };
+
+  struct Path
+  {
+    std::vector<Pose> poses;
+  };
+  struct GpsPoint
+  {
+    double lat;
+    double lon;
+    double alt;
+  };
+
   using LogCallback = std::function<void(const std::string &)>;
   using PathCallback = std::function<void(const Path &)>;
 
@@ -28,41 +49,14 @@ namespace global_planner
 
     // 异步规划接口
     void setPathCallback(PathCallback cb);
+
     void setLogCallback(LogCallback cb);
 
-    void planAsync(); // 异步调用 plan()
     std::vector<GpsPoint> convertPathToGPS(const Path &path) const;
 
-  private:
-    void log(const std::string &msg);
-    std::string vec3ToString(const Vec3 &v);
-    Path planSyncInternal();
-    Vec3 gpsToUtm(double lat, double lon, double alt);
-
-    
-
+    void planAsync(); // 异步调用 plan()
 
   private:
-    std::string config_path_;
-
-    // A星规划器
-    Astar::Ptr Astar_ptr;
-    Path path_result_;
-    Vec3 start_pos_;
-    Vec3 goal_pos_;
-
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
-    std::string pcd_path_;
-    bool set_start_;
-    bool set_goal_;
-
-    PathCallback path_callback_;
-    LogCallback log_callback_;
-
-    int utm_zone_;
-
-    // ====== 状态 ======
-    std::string last_error_;
   };
 
 } // namespace global_planner

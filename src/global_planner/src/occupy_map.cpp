@@ -7,14 +7,13 @@ namespace global_planner
     {
         // 全局地图点云指针
         global_point_cloud_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        // 膨胀点云指针
-        // cloud_inflate_vis_.reset(new pcl::PointCloud<pcl::PointXYZ>);
-
-        this->inv_resolution_ = 1.0 / resolution_;
-        
+        inflate_=0.5;
+        cost_inflate=5;
+        inv_resolution_ = 1.0 / resolution_;
         // 膨胀格子数 = 膨胀距离/分辨率
         // ceil返回大于或者等于指定表达式的最小整数
         ifn = ceil(inflate_ * inv_resolution_);
+
         inflate_index = 0;
         // 三维关键点膨胀
         for (int x = -ifn; x <= ifn; x++)
@@ -86,10 +85,17 @@ namespace global_planner
         map_size_3d_(1) = max_pt.y() - min_pt.y();
         map_size_3d_(2) = max_pt.z() - min_pt.z();
 
+        std::cout<< "origin: "<< origin_.x() <<" "<< origin_.y() <<" "<< origin_.z() <<std::endl;
+        std::cout<< "map size: "<< map_size_3d_.x() <<" "<< map_size_3d_.y() <<" "<< map_size_3d_.z() <<std::endl;
+        
+        std::cout<< "ifn: "<< ifn <<std::endl;
+        std::cout<<"inflate_ is "<< inflate_ <<std::endl;
+
         for (int i = 0; i < 3; ++i)
         {
             // 占据图尺寸 = 地图尺寸 / 分辨率
             grid_size_(i) = ceil(ifn * map_size_3d_(i) / resolution_);
+            std::cout<<"grid size "<<i<<" is "<<grid_size_(i)<<std::endl;
         }
 
         // 占据容器的大小 = 占据图尺寸 x*y*z
@@ -101,6 +107,9 @@ namespace global_planner
         min_range_ = origin_;
         max_range_ = origin_ + map_size_3d_;
 
+        std::cout<<"[Occupy_map] Map updated. Size: "
+                 << map_size_3d_.x() << " x " << map_size_3d_.y() << " x " << map_size_3d_.z()
+                 << ", Grid size: " << grid_size_.x() << " x " << grid_size_.y() << " x " << grid_size_.z() << std::endl;
         inflate_point_cloud();
     }
 
@@ -112,16 +121,17 @@ namespace global_planner
         // 转化为PCL的格式进行处理
         pcl::PointCloud<pcl::PointXYZ> latest_global_cloud_ = *global_point_cloud_map;
 
+        std::cout << "[Occupy_map] Starting inflation..." << std::endl;
+
         if ((int)latest_global_cloud_.points.size() == 0)
         {
             return;
         }
 
-        // cloud_inflate_vis_->clear();
-
         pcl::PointXYZ pt_inf;
         Eigen::Vector3d p3d, p3d_inf, p3d_cost;
 
+        std::cout << "[Occupy_map] Inflating " << latest_global_cloud_.points.size() << " points." << std::endl;
         // 遍历全局点云中的所有点
         for (size_t i = 0; i < latest_global_cloud_.points.size(); ++i)
         {
@@ -133,6 +143,7 @@ namespace global_planner
             // 若取出的点不在地图内（膨胀时只考虑地图范围内的点）
             if (!isInMap(p3d))
             {
+                std::cout << "[Occupy_map] Point " << i << " is out of map bounds, skipping inflation." << std::endl;
                 continue;
             }
 
@@ -176,7 +187,7 @@ namespace global_planner
             // 膨胀地图效率与地图大小有关
             exec_num = 0;
         }
-
+        std::cout << "[Occupy_map] Inflation completed." << std::endl;
     }
 
     void Occupy_map::setOccupancy(Eigen::Vector3d &pos, int occ)

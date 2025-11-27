@@ -17,6 +17,7 @@ namespace global_planner
     GlobalPlannerUGV::GlobalPlannerUGV()
     {
         Astar_ptr = std::make_shared<Astar>();
+        Astar_ptr->init();
         cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>());
         set_start_ = false;
         set_goal_ = false;
@@ -36,14 +37,16 @@ namespace global_planner
         YAML::Node cfg;
         try
         {
-            cfg = YAML::LoadFile(config_path_);
-            Astar_ptr->lambda_heu_ = cfg["Astar_ptr"] ? cfg["Astar_ptr"].as<double>() : 2.0;
-            Astar_ptr->lambda_cost_ = cfg["lambda_cost_"] ? cfg["lambda_cost_"].as<double>() : 300.0;
-            Astar_ptr->max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
-            Astar_ptr->resolution_ = cfg["resolution_"] ? cfg["resolution_"].as<double>() : 0.2;
-            Astar_ptr->Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
-            Astar_ptr->Occupy_map_ptr->inflate_ = cfg["inflate_"] ? cfg["inflate_"].as<double>() : 0.3;
-            Astar_ptr->Occupy_map_ptr->resolution_ = Astar_ptr->resolution_;
+            // cfg = YAML::LoadFile(config_path_);
+            // Astar_ptr->lambda_heu_ = cfg["lambda_heu_"] ? cfg["lambda_heu_"].as<double>() : 2.0;
+            // Astar_ptr->lambda_cost_ = cfg["lambda_cost_"] ? cfg["lambda_cost_"].as<double>() : 300.0;
+            // Astar_ptr->max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
+            // Astar_ptr->resolution_ = cfg["resolution_"] ? cfg["resolution_"].as<double>() : 0.2;
+            // Astar_ptr->Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
+            // Astar_ptr->Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.5;
+            // Astar_ptr->Occupy_map_ptr->resolution_ = Astar_ptr->resolution_;
+            
+            log("[GlobalPlannerUGV] Config loaded from: " + config_path_ + "\n");
         }
         catch (...)
         {
@@ -66,7 +69,9 @@ namespace global_planner
         }
         else
         {
+            log("[GlobalPlannerUGV] PCD loaded, point size: " + std::to_string(cloud_->points.size()) + "\n");
             Astar_ptr->Occupy_map_ptr->map_update_gpcl(cloud_);
+            log("[GlobalPlannerUGV] Occupancy map updated from point cloud.\n");
             return true;
         }
     }
@@ -83,6 +88,7 @@ namespace global_planner
 
     void GlobalPlannerUGV::setStart(const Eigen::Vector3d &s)
     {
+        log("[GlobalPlannerUGV] Setting start position...\n");
 
         start_pos_ = gpsToUtm(s.x(), s.y(), s.z());
         set_start_ = true;

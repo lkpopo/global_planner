@@ -36,10 +36,18 @@ set(SOURCES
     src/A_star.cpp
     src/occupy_map.cpp
 )
+add_executable(main src/main.cpp)
 
 add_library(global_planner STATIC ${SOURCES})
-target_link_libraries(global_planner 
-PUBLIC
+# target_link_libraries(global_planner 
+# PUBLIC
+#     pthread
+#     ${PCL_LIBRARIES}
+#     yaml-cpp
+# )
+
+target_link_libraries(main
+    global_planner
     pthread
     ${PCL_LIBRARIES}
     yaml-cpp

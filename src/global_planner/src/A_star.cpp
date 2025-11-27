@@ -17,6 +17,10 @@ namespace global_planner
 
   void Astar::init()
   {
+    lambda_heu_ = 2.0;
+    lambda_cost_ = 300.0;
+    max_search_num = 100000;
+    resolution_ = 0.5;
 
     tie_breaker_ = 1.0 + 1.0 / max_search_num;
 
@@ -36,6 +40,8 @@ namespace global_planner
 
     // 初始化占据地图
     Occupy_map_ptr.reset(new Occupy_map);
+
+    Occupy_map_ptr->resolution_ = resolution_;
     Occupy_map_ptr->init();
 
     // 读取地图参数

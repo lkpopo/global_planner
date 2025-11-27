@@ -1,4 +1,13 @@
 #include "global_planner.h"
+#include "planer_common.h"
+
+YAML::BadConversion::~BadConversion()
+{
+}
+
+void YAML::detail::node_data::convert_to_map(const YAML::detail::shared_memory_holder &pMemory)
+{
+}
 
 namespace global_planner
 {
@@ -20,7 +29,7 @@ namespace global_planner
         set_goal_ = false;
         path_callback_ = nullptr;
         log_callback_ = nullptr;
-        utm_zone_=50;
+        utm_zone_ = 50;
     }
 
     GlobalPlannerUGV::~GlobalPlannerUGV()
@@ -35,19 +44,19 @@ namespace global_planner
         try
         {
             cfg = YAML::LoadFile(config_path_);
+            Astar_ptr->lambda_heu_ = cfg["Astar_ptr"] ? cfg["Astar_ptr"].as<double>() : 2.0;
+            Astar_ptr->lambda_cost_ = cfg["lambda_cost_"] ? cfg["lambda_cost_"].as<double>() : 300.0;
+            Astar_ptr->max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
+            Astar_ptr->resolution_ = cfg["resolution_"] ? cfg["resolution_"].as<double>() : 0.2;
+            Astar_ptr->Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
+            Astar_ptr->Occupy_map_ptr->inflate_ = cfg["inflate_"] ? cfg["inflate_"].as<double>() : 0.3;
+            Astar_ptr->Occupy_map_ptr->resolution_ = Astar_ptr->resolution_;
         }
         catch (...)
         {
             log("Failed to load config file: " + config_path_ + "\n");
             return false;
         }
-        Astar_ptr->lambda_heu_ = cfg["Astar_ptr"] ? cfg["Astar_ptr"].as<double>() : 2.0;
-        Astar_ptr->lambda_cost_ = cfg["lambda_cost_"] ? cfg["lambda_cost_"].as<double>() : 300.0;
-        Astar_ptr->max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
-        Astar_ptr->resolution_ = cfg["resolution_"] ? cfg["resolution_"].as<double>() : 0.2;
-        Astar_ptr->Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
-        Astar_ptr->Occupy_map_ptr->inflate_ = cfg["inflate_"] ? cfg["inflate_"].as<double>() : 0.3;
-        Astar_ptr->Occupy_map_ptr->resolution_ = Astar_ptr->resolution_;
 
         // TODO: 读取配置
         return true;
@@ -55,6 +64,7 @@ namespace global_planner
 
     bool GlobalPlannerUGV::setPointCloud(const std::string &pcd_path)
     {
+        cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>());
         pcd_path_ = pcd_path;
         if (pcl::io::loadPCDFile(pcd_path, *cloud_) != 0)
         {
@@ -78,17 +88,17 @@ namespace global_planner
         log_callback_ = cb;
     }
 
-    void GlobalPlannerUGV::setStart(const Vec3 &s)
+    void GlobalPlannerUGV::setStart(const Eigen::Vector3d &s)
     {
 
-        start_pos_ = gpsToUtm(s.x, s.y, s.z);
+        start_pos_ = gpsToUtm(s.x(), s.y(), s.z());
         set_start_ = true;
         log("[GlobalPlannerUGV] Start position set: " + vec3ToString(start_pos_) + "\n");
     }
 
-    void GlobalPlannerUGV::setGoal(const Vec3 &g)
+    void GlobalPlannerUGV::setGoal(const Eigen::Vector3d &g)
     {
-        goal_pos_ = gpsToUtm(g.x, g.y, g.z);
+        goal_pos_ = gpsToUtm(g.x(), g.y(), g.z());
         set_goal_ = true;
         log("[GlobalPlannerUGV] Goal position set: " + vec3ToString(goal_pos_) + "\n");
     }
@@ -96,9 +106,7 @@ namespace global_planner
     Path GlobalPlannerUGV::planSyncInternal()
     {
         Astar_ptr->reset();
-        Eigen::Vector3d start(start_pos_.x, start_pos_.y, start_pos_.z);
-        Eigen::Vector3d goal(goal_pos_.x, goal_pos_.y, goal_pos_.z);
-        bool res = Astar_ptr->search(start, goal);
+        bool res = Astar_ptr->search(start_pos_, goal_pos_);
         if (res)
         {
             path_result_ = Astar_ptr->getPath();
@@ -133,9 +141,9 @@ namespace global_planner
             log_callback_(msg);
     }
 
-    std::string GlobalPlannerUGV::vec3ToString(const Vec3 &v)
+    std::string GlobalPlannerUGV::vec3ToString(const Eigen::Vector3d &v)
     {
-        return std::to_string(v.x) + "," + std::to_string(v.y) + "," + std::to_string(v.z);
+        return std::to_string(v.x()) + "," + std::to_string(v.y()) + "," + std::to_string(v.z());
     }
 
     std::vector<GpsPoint> GlobalPlannerUGV::convertPathToGPS(const Path &path) const
@@ -147,8 +155,8 @@ namespace global_planner
 
         for (const auto &p : path.poses)
         {
-            double x = p.position.x - 500000.0;
-            double y = p.position.y;
+            double x = p.position.x() - 500000.0;
+            double y = p.position.y();
 
             double M = y / UTM_K0;
             double mu = M / (WGS84_A * (1 - WGS84_E2 / 4 - 3 * WGS84_E2 * WGS84_E2 / 64 - 5 * WGS84_E2 * WGS84_E2 * WGS84_E2 / 256));
@@ -179,13 +187,13 @@ namespace global_planner
             lon = lon0 + lon * 180 / M_PI;
             lat = lat * 180 / M_PI;
 
-            gps_list.push_back({lat, lon, p.position.z});
+            gps_list.push_back({lat, lon, p.position.z()});
         }
 
         return gps_list;
     }
 
-    Vec3 GlobalPlannerUGV::gpsToUtm(double lat, double lon, double alt)
+    Eigen::Vector3d GlobalPlannerUGV::gpsToUtm(double lat, double lon, double alt)
     {
         // 度 → 弧度
         double lat_rad = lat * M_PI / 180.0;
@@ -212,7 +220,7 @@ namespace global_planner
         if (lat < 0)
             y += 10000000.0;
 
-        return {float(x), float(y), float(alt)};
+        return Eigen::Vector3d(x, y, alt);
     }
 
 } // namespace global_planner

@@ -1,73 +1,54 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10)
 project(localizer)
 
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions" )
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -fexceptions")
-
-if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-O3)
-  add_compile_options(-Wall -Wextra -Wpedantic)
-endif()
-
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -pthread -fexceptions")
 add_compile_definitions(SOPHUS_USE_BASIC_LOGGING)
-# find dependencies
-find_package(ament_cmake REQUIRED)
-find_package(std_msgs REQUIRED)
-find_package(sensor_msgs REQUIRED)
-find_package(nav_msgs REQUIRED)
-find_package(geometry_msgs REQUIRED)
-find_package(message_filters REQUIRED)
-find_package(tf2_ros REQUIRED)
-find_package(interface REQUIRED)
-find_package(PCL REQUIRED)
-find_package(pcl_conversions REQUIRED)
-find_package(livox_ros_driver2 REQUIRED)
-find_package(Sophus REQUIRED)
 
-find_package(Eigen3 REQUIRED)
-find_package(yaml-cpp REQUIRED)
+# ===== 手动指定第三方库路径 =====
+set(THIRD_PARTY_DIR ~/cross/install/aarch64)
 
-
-
-include_directories(
-  ${EIGEN3_INCLUDE_DIR}
-  ${PCL_INCLUDE_DIRS}
+set(CMAKE_PREFIX_PATH
+    ${THIRD_PARTY_DIR}
+    ${THIRD_PARTY_DIR}/pcl
 )
 
+include_directories(
+    ${THIRD_PARTY_DIR}/include
+    ${THIRD_PARTY_DIR}/pcl/include
+    /home/zxhc/Workspace/ROS2_WS/global_planner/src/localizer/src
+)
 
-set(SRC_LIST src/localizers/commons.cpp
-             src/localizers/icp_localizer.cpp
-             src/localizers/ikd_Tree.cpp
-             src/localizers/lidar_processor.cpp
-             src/localizers/imu_processor.cpp
-             src/localizers/ieskf.cpp
-             src/utils.cpp)
+link_directories(
+    ${THIRD_PARTY_DIR}/lib
+    ${THIRD_PARTY_DIR}/pcl/lib
+)
 
-add_executable(localizer_node src/localizer_node.cpp ${SRC_LIST})
-ament_target_dependencies(localizer_node rclcpp std_msgs sensor_msgs nav_msgs message_filters pcl_conversions tf2_ros geometry_msgs interface livox_ros_driver2)
-target_link_libraries(localizer_node ${PCL_LIBRARIES}  yaml-cpp) 
+# ===== 找第三方库 =====
+find_package(Eigen3 REQUIRED)
+find_package(PCL REQUIRED)
+find_package(Sophus REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
+# ===== 源文件 =====
+set(SRC_LIST 
+    src/localizer.cpp
+    src/localizers/commons.cpp
+    src/localizers/icp_localizer.cpp
+    src/localizers/ikd_Tree.cpp
+    src/localizers/lidar_processor.cpp
+    src/localizers/imu_processor.cpp
+    src/localizers/ieskf.cpp
+)
 
-install(TARGETS localizer_node DESTINATION lib/${PROJECT_NAME})
-install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY config DESTINATION share/${PROJECT_NAME})
-install(DIRECTORY rviz DESTINATION share/${PROJECT_NAME})
+# ===== 生成静态库 .a =====
+add_library(localizer STATIC ${SRC_LIST})
 
-
-if(BUILD_TESTING)
-  find_package(ament_lint_auto REQUIRED)
-  # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
-  set(ament_cmake_copyright_FOUND TRUE)
-  # the following line skips cpplint (only works in a git repo)
-  # comment the line when this package is in a git repo and when
-  # a copyright and license is added to all source files
-  set(ament_cmake_cpplint_FOUND TRUE)
-  ament_lint_auto_find_test_dependencies()
-endif()
-
-ament_package()
+target_link_libraries(localizer
+    ${PCL_LIBRARIES}
+    yaml-cpp
+    Sophus::Sophus
+)

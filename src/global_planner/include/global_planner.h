@@ -4,71 +4,65 @@
 #include <iostream>
 #include <algorithm>
 #include <iostream>
-
-// #include "A_star.h"
-// #include "occupy_map.h"
-// #include "printf_utils.h"
-
-using namespace std;
-
-struct Vec3
-{
-  float x, y, z;
-};
-
-struct Pose
-{
-  Vec3 position;
-};
-
-struct Path
-{
-  std::vector<Pose> poses;
-};
+#include <thread>
+#include <memory>
+#include "planer_utils.h"
 
 namespace global_planner
 {
+  class Astar;
+
+  using LogCallback = std::function<void(const std::string &)>;
+  using PathCallback = std::function<void(const Path &)>;
 
   class GlobalPlannerUGV
   {
   public:
-    GlobalPlannerUGV() {}
+    GlobalPlannerUGV();
+    ~GlobalPlannerUGV();
 
-    ~GlobalPlannerUGV() {}
+    bool initFromConfig(const std::string &config_path);
+    bool setPointCloud(const std::string &pcd_path);
 
-    // 配置初始化
-    bool initFromConfig(const std::string& config_path);
+    void setStart(const Eigen::Vector3d &s);
+    void setGoal(const Eigen::Vector3d &g);
 
-    // 设置地图
-    bool setPointCloud(const std::string& pcd_path);
+    // 异步规划接口
+    void setPathCallback(PathCallback cb);
+    void setLogCallback(LogCallback cb);
 
-    // 设置起点/终点
-    void setStart(const Vec3& s);
-    void setGoal(const Vec3& g);
-
-    // 执行规划
-    bool plan();
-
-    // 获取结果
-    Path getPath() const;
+    void planAsync(); // 异步调用 plan()
+    std::vector<GpsPoint> convertPathToGPS(const Path &path) const;
 
   private:
-    // 初始点和目标点坐标
-    Vec3 start_pos, goal_pos;
+    void log(const std::string &msg);
+    std::string vec3ToString(const Eigen::Vector3d &v);
+    Path planSyncInternal();
+    Eigen::Vector3d gpsToUtm(double lat, double lon, double alt);
 
-    // 点云指针
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud;
+  private:
+    std::string config_path_;
 
-    // 规划得到的路径
-    Path path_res;
+    // A星规划器
+    std::shared_ptr<Astar> Astar_ptr;
+    Path path_result_;
+    Eigen::Vector3d start_pos_;
+    Eigen::Vector3d goal_pos_;
 
-    // A*规划器
-    // Astar::Ptr Astar_ptr;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
+    std::string pcd_path_;
+    bool set_start_;
+    bool set_goal_;
 
-    // A*规划器状态
-    int astar_state;
+    PathCallback path_callback_;
+    LogCallback log_callback_;
+
+    int utm_zone_;
+
+    // ====== 状态 ======
+    std::string last_error_;
   };
 
-}
+} // namespace global_planner
 
 #endif

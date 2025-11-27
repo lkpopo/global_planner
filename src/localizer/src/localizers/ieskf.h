@@ -1,26 +1,7 @@
 #pragma once
 #include <Eigen/Eigen>
 #include <sophus/so3.hpp>
-
-using M3D = Eigen::Matrix3d;
-using V3D = Eigen::Vector3d;
-using M3F = Eigen::Matrix3f;
-using V3F = Eigen::Vector3f;
-using M2D = Eigen::Matrix2d;
-using V2D = Eigen::Vector2d;
-using M2F = Eigen::Matrix2f;
-using V2F = Eigen::Vector2f;
-using M4D = Eigen::Matrix4d;
-using V4D = Eigen::Vector4d;
-using M4F = Eigen::Matrix4f;
-using V4F = Eigen::Vector4f;
-
-using M12D = Eigen::Matrix<double, 12, 12>;
-using M21D = Eigen::Matrix<double, 21, 21>;
-
-using V12D = Eigen::Matrix<double, 12, 1>;
-using V21D = Eigen::Matrix<double, 21, 1>;
-using M21X12D = Eigen::Matrix<double, 21, 12>;
+#include "localizer_utils.h"
 
 M3D Jr(const V3D &inp);
 M3D JrInv(const V3D &inp);

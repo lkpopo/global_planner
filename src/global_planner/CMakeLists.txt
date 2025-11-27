@@ -3,22 +3,18 @@ project(global_planner)
 
 set(BUILD_SHARED_LIBS OFF)
 
-# -------------------- 交叉编译工具链 --------------------
-set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_SYSTEM_PROCESSOR aarch64)
-set(CMAKE_C_COMPILER   /usr/bin/aarch64-linux-gnu-gcc-9)
-set(CMAKE_CXX_COMPILER /usr/bin/aarch64-linux-gnu-g++-9)
 
 # -------------------- 外部依赖 --------------------
 # Eigen3
-set(Eigen3_INCLUDE_DIR "/home/zxhc/cross/install/aarch64/include/eigen3")
+set(Eigen3_INCLUDE_DIR "/usr/include/eigen3")
 
 # YAML
-set(YAMLCPP_LIB "/home/zxhc/cross/install/aarch64/lib/libyaml-cpp.a")
+set(YAMLCPP_LIB "/usr/lib/aarch64-linux-gnu/libyaml-cpp.a")
 
 # 查找PCL
 find_package(PCL REQUIRED)
-include_directories(${PCL_INCLUDE_DIRS})
+include_directories(${PCL_INCLUDE_DIRS}
+)
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
@@ -44,6 +40,7 @@ set(SOURCES
 add_library(global_planner STATIC ${SOURCES})
 target_link_libraries(global_planner 
 PUBLIC
+    pthread
     ${PCL_LIBRARIES}
     yaml-cpp
 )

@@ -1,13 +1,6 @@
 #include "global_planner.h"
 #include "planer_common.h"
 
-YAML::BadConversion::~BadConversion()
-{
-}
-
-void YAML::detail::node_data::convert_to_map(const YAML::detail::shared_memory_holder &pMemory)
-{
-}
 
 namespace global_planner
 {

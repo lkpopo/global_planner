@@ -8,29 +8,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -pthread -fexceptions")
 add_compile_definitions(SOPHUS_USE_BASIC_LOGGING)
 
-# ===== 手动指定第三方库路径 =====
-set(THIRD_PARTY_DIR ~/cross/install/aarch64)
-
-set(CMAKE_PREFIX_PATH
-    ${THIRD_PARTY_DIR}
-    ${THIRD_PARTY_DIR}/pcl
-)
-
-include_directories(
-    ${THIRD_PARTY_DIR}/include
-    ${THIRD_PARTY_DIR}/pcl/include
-    /home/zxhc/Workspace/ROS2_WS/global_planner/src/localizer/src
-)
-
-link_directories(
-    ${THIRD_PARTY_DIR}/lib
-    ${THIRD_PARTY_DIR}/pcl/lib
+include_directories(/home/dji/Test/party/include
+/home/dji/Test/global_planner/src/localizer/src
+/home/dji/Test/global_planner/src/localizer/src/localizerss
 )
 
 # ===== 找第三方库 =====
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
-find_package(Sophus REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 # ===== 源文件 =====
@@ -50,5 +35,4 @@ add_library(localizer STATIC ${SRC_LIST})
 target_link_libraries(localizer
     ${PCL_LIBRARIES}
     yaml-cpp
-    Sophus::Sophus
 )

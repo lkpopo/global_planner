@@ -104,7 +104,7 @@ namespace global_planner
         }
 
         log("[GlobalPlannerUGV] Starting async planning...\n");
-        planning_thread_ = std::thread([this]()
+         std::thread([this]()
                     {
             Path path_result  = this->planSyncInternal();
             // 规划成功返回路径，否则路径是空的

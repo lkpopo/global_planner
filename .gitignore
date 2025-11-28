@@ -1,4 +1,6 @@
 build
+build_arm
+build_x86
 install
 log
 bag

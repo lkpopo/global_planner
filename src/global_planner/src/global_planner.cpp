@@ -17,7 +17,7 @@ namespace global_planner
     GlobalPlannerUGV::GlobalPlannerUGV()
     {
         Astar_ptr = std::make_shared<Astar>();
-        Astar_ptr->init();
+        
         cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>());
         set_start_ = false;
         set_goal_ = false;
@@ -33,29 +33,10 @@ namespace global_planner
 
     bool GlobalPlannerUGV::initFromConfig(const std::string &config_path)
     {
-        config_path_ = config_path;
-        YAML::Node cfg;
-        try
-        {
-            // cfg = YAML::LoadFile(config_path_);
-            // Astar_ptr->lambda_heu_ = cfg["lambda_heu_"] ? cfg["lambda_heu_"].as<double>() : 2.0;
-            // Astar_ptr->lambda_cost_ = cfg["lambda_cost_"] ? cfg["lambda_cost_"].as<double>() : 300.0;
-            // Astar_ptr->max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
-            // Astar_ptr->resolution_ = cfg["resolution_"] ? cfg["resolution_"].as<double>() : 0.2;
-            // Astar_ptr->Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
-            // Astar_ptr->Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.5;
-            // Astar_ptr->Occupy_map_ptr->resolution_ = Astar_ptr->resolution_;
-            
-            log("[GlobalPlannerUGV] Config loaded from: " + config_path_ + "\n");
-        }
-        catch (...)
-        {
-            log("Failed to load config file: " + config_path_ + "\n");
-            return false;
-        }
+        log("[GlobalPlannerUGV] Astart init " + config_path + "\n");
+        bool res = Astar_ptr->init(config_path);
 
-        // TODO: 读取配置
-        return true;
+        return res;
     }
 
     bool GlobalPlannerUGV::setPointCloud(const std::string &pcd_path)
@@ -123,7 +104,7 @@ namespace global_planner
         }
 
         log("[GlobalPlannerUGV] Starting async planning...\n");
-        std::thread([this]()
+        planning_thread_ = std::thread([this]()
                     {
             Path path_result  = this->planSyncInternal();
             // 规划成功返回路径，否则路径是空的

@@ -61,6 +61,9 @@ namespace global_planner
 
     // ====== 状态 ======
     std::string last_error_;
+
+  public:
+    std::thread planning_thread_;
   };
 
 } // namespace global_planner

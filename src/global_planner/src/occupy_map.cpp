@@ -7,9 +7,10 @@ namespace global_planner
     {
         // 全局地图点云指针
         global_point_cloud_map.reset(new pcl::PointCloud<pcl::PointXYZ>);
-        inflate_=0.5;
-        cost_inflate=5;
+        // inflate_=0.5;
+        // cost_inflate=5;
         inv_resolution_ = 1.0 / resolution_;
+        
         // 膨胀格子数 = 膨胀距离/分辨率
         // ceil返回大于或者等于指定表达式的最小整数
         ifn = ceil(inflate_ * inv_resolution_);
@@ -87,9 +88,6 @@ namespace global_planner
 
         std::cout<< "origin: "<< origin_.x() <<" "<< origin_.y() <<" "<< origin_.z() <<std::endl;
         std::cout<< "map size: "<< map_size_3d_.x() <<" "<< map_size_3d_.y() <<" "<< map_size_3d_.z() <<std::endl;
-        
-        std::cout<< "ifn: "<< ifn <<std::endl;
-        std::cout<<"inflate_ is "<< inflate_ <<std::endl;
 
         for (int i = 0; i < 3; ++i)
         {
@@ -115,13 +113,11 @@ namespace global_planner
 
     // 当global_planning节点接收到点云消息更新时，进行设置点云指针并膨胀
     // Astar规划路径时，采用的是此处膨胀后的点云（setOccupancy只在本函数中使用）
-    // 路径规划的时候是用的occupancy_buffer_，cloud_inflate_vis_仅用作显示点云数据查看
+    // 路径规划的时候是用的occupancy_buffer_
     void Occupy_map::inflate_point_cloud(void)
     {
         // 转化为PCL的格式进行处理
         pcl::PointCloud<pcl::PointXYZ> latest_global_cloud_ = *global_point_cloud_map;
-
-        std::cout << "[Occupy_map] Starting inflation..." << std::endl;
 
         if ((int)latest_global_cloud_.points.size() == 0)
         {
@@ -131,7 +127,6 @@ namespace global_planner
         pcl::PointXYZ pt_inf;
         Eigen::Vector3d p3d, p3d_inf, p3d_cost;
 
-        std::cout << "[Occupy_map] Inflating " << latest_global_cloud_.points.size() << " points." << std::endl;
         // 遍历全局点云中的所有点
         for (size_t i = 0; i < latest_global_cloud_.points.size(); ++i)
         {
@@ -143,7 +138,6 @@ namespace global_planner
             // 若取出的点不在地图内（膨胀时只考虑地图范围内的点）
             if (!isInMap(p3d))
             {
-                std::cout << "[Occupy_map] Point " << i << " is out of map bounds, skipping inflation." << std::endl;
                 continue;
             }
 

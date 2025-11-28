@@ -2,4 +2,3 @@
 #include "occupy_map.h"
 #include <pcl/impl/point_types.hpp>
 #include <Eigen/Dense>
-#include <yaml-cpp/yaml.h>

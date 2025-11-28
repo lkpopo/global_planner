@@ -9,7 +9,7 @@ set(BUILD_SHARED_LIBS OFF)
 set(Eigen3_INCLUDE_DIR "/usr/include/eigen3")
 
 # YAML
-set(YAMLCPP_LIB "/usr/lib/aarch64-linux-gnu/libyaml-cpp.a")
+# set(YAMLCPP_LIB "/usr/lib/aarch64-linux-gnu/libyaml-cpp.a")
 
 # 查找PCL
 find_package(PCL REQUIRED)
@@ -39,12 +39,6 @@ set(SOURCES
 add_executable(main src/main.cpp)
 
 add_library(global_planner STATIC ${SOURCES})
-# target_link_libraries(global_planner 
-# PUBLIC
-#     pthread
-#     ${PCL_LIBRARIES}
-#     yaml-cpp
-# )
 
 target_link_libraries(main
     global_planner

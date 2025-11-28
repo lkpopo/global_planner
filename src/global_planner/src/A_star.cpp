@@ -15,12 +15,31 @@ namespace global_planner
     }
   }
 
-  void Astar::init()
+  bool Astar::init(std::string config_path)
   {
-    lambda_heu_ = 2.0;
-    lambda_cost_ = 300.0;
-    max_search_num = 100000;
-    resolution_ = 0.5;
+    // 初始化占据地图
+    Occupy_map_ptr.reset(new Occupy_map);
+    
+    YAML::Node cfg;
+    try
+    {
+        cfg = YAML::LoadFile(config_path);
+        lambda_heu_ = cfg["lambda_heu"] ? cfg["lambda_heu"].as<double>() : 2.0;
+        lambda_cost_ = cfg["lambda_cost"] ? cfg["lambda_cost"].as<double>() : 300.0;
+        max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
+        resolution_ = cfg["resolution"] ? cfg["resolution"].as<double>() : 0.2;
+        Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
+        Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.5;
+        Occupy_map_ptr->resolution_ = resolution_;
+    }
+    catch (...)
+    {
+        return false;
+    }
+    // lambda_heu_ = 2.0;
+    // lambda_cost_ = 300.0;
+    // max_search_num = 100000;
+    // resolution_ = 0.5;
 
     tie_breaker_ = 1.0 + 1.0 / max_search_num;
 
@@ -38,15 +57,14 @@ namespace global_planner
     use_node_num_ = 0;
     iter_num_ = 0;
 
-    // 初始化占据地图
-    Occupy_map_ptr.reset(new Occupy_map);
-
-    Occupy_map_ptr->resolution_ = resolution_;
+    // Occupy_map_ptr->resolution_ = resolution_;
     Occupy_map_ptr->init();
 
     // 读取地图参数
     origin_ = Occupy_map_ptr->min_range_;
     map_size_3d_ = Occupy_map_ptr->max_range_ - Occupy_map_ptr->min_range_;
+
+    return true;
   }
 
   void Astar::reset()

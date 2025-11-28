@@ -7,6 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <sstream>
+#include <yaml-cpp/yaml.h>
 
 #include "occupy_map.h"
 #include "planer_utils.h"
@@ -159,7 +160,7 @@ namespace global_planner
     // 重置
     void reset();
     // 初始化
-    void init();
+    bool init(std::string config_path);
     // 搜索
     bool search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
     // 返回路径

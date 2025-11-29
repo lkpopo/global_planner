@@ -173,6 +173,7 @@ namespace global_planner
         return gps_list;
     }
 
+    // 纬度-经度-海拔
     Eigen::Vector3d GlobalPlannerUGV::gpsToUtm(double lat, double lon, double alt)
     {
         // 度 → 弧度

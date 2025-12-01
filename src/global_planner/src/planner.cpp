@@ -31,6 +31,9 @@ namespace global_planner
     static constexpr double UTM_K0 = 0.9996;
     std::unique_ptr<Impl> impl_ = std::make_unique<Impl>();
 
+    Eigen::Vector3d gpsToUtm(double lat, double lon, double alt, int &utm_zone_);
+    Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw);
+
     planner::planner()
     {
         Astar_ptr = std::make_shared<Astar>();

@@ -78,13 +78,19 @@ namespace global_planner
         Eigen::Vector4f min_pt, max_pt;
         pcl::getMinMax3D(*global_point_cloud_map, min_pt, max_pt);
 
+        // double margin = 1000.0+ifn;
+        // Eigen::Vector3d min3d(min_pt.x(), min_pt.y(), min_pt.z());
+        // Eigen::Vector3d max3d(max_pt.x(), max_pt.y(), max_pt.z());
         // map 尺寸
-        origin_(0) = min_pt.x()-ifn-2000;
-        origin_(1) = min_pt.y()-ifn-2000;
+        origin_(0) = min_pt.x()-ifn;
+        origin_(1) = min_pt.y()-ifn;
         origin_(2) = min_pt.z()-ifn;
-        map_size_3d_(0) = max_pt.x() - min_pt.x();
-        map_size_3d_(1) = max_pt.y() - min_pt.y();
+        map_size_3d_(0) = max_pt.x() - min_pt.x()+300;
+        map_size_3d_(1) = max_pt.y() - min_pt.y()+300;
         map_size_3d_(2) = max_pt.z() - min_pt.z();
+        // origin_ = min3d - Eigen::Vector3d(margin, margin, margin);
+        // map_size_3d_ = (max3d - min3d) + 2.0 * Eigen::Vector3d(margin, margin, margin);
+
 
         std::cout<< "origin: "<< origin_.x() <<" "<< origin_.y() <<" "<< origin_.z() <<std::endl;
         std::cout<< "map size: "<< map_size_3d_.x() <<" "<< map_size_3d_.y() <<" "<< map_size_3d_.z() <<std::endl;
@@ -102,14 +108,17 @@ namespace global_planner
         fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
         fill(cost_map_.begin(), cost_map_.end(), 0.0);
 
-        Eigen::Vector3d add(2000,2000,0);
-        min_range_ = origin_ ;
-        max_range_ = origin_ + map_size_3d_ + add;
+        min_range_ = origin_;
+        max_range_ = origin_ + map_size_3d_;
 
         std::cout<<"[Occupy_map] Map updated. Size: "
                  << map_size_3d_.x() << " x " << map_size_3d_.y() << " x " << map_size_3d_.z()
                  << ", Grid size: " << grid_size_.x() << " x " << grid_size_.y() << " x " << grid_size_.z() << std::endl;
         inflate_point_cloud();
+
+        double margin = 500.0;
+        min_range_ = origin_ - Eigen::Vector3d(margin, margin, 0);
+        max_range_ = origin_ + map_size_3d_ + Eigen::Vector3d(margin, margin, 0);
     }
 
     // 当global_planning节点接收到点云消息更新时，进行设置点云指针并膨胀
@@ -164,24 +173,15 @@ namespace global_planner
                     continue;
                 }
 
-                pt_inf.x = p3d_inf(0);
-                pt_inf.y = p3d_inf(1);
-                pt_inf.z = p3d_inf(2);
+                // pt_inf.x = p3d_inf(0);
+                // pt_inf.y = p3d_inf(1);
+                // pt_inf.z = p3d_inf(2);
                 // cloud_inflate_vis_->push_back(pt_inf); // 暂时不需要可视化显示
                 // 设置膨胀后的点被占据（不管他之前是否被占据）
                 this->setOccupancy(p3d_inf, 1);
             }
         }
 
-        static int exec_num = 0;
-        exec_num++;
-
-        // 此处改为根据循环时间计算的数值
-        if (exec_num == 50)
-        {
-            // 膨胀地图效率与地图大小有关
-            exec_num = 0;
-        }
         std::cout << "[Occupy_map] Inflation completed." << std::endl;
     }
 

@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 project(global_planner)
 
 set(BUILD_SHARED_LIBS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 
 
 # -------------------- 外部依赖 --------------------
@@ -27,20 +30,20 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${Eigen3_INCLUDE_DIR}
     ${PCL_INCLUDE_DIRS}
-    ${BOOST_ROOT}/include
+
 )
 
 # ------------------- 全功能静态库 -------------------
 set(SOURCES
-    src/global_planner.cpp
+    src/planner.cpp
     src/A_star.cpp
     src/occupy_map.cpp
 )
-add_executable(main src/main.cpp)
+# add_executable(main src/main.cpp)
 
 add_library(global_planner STATIC ${SOURCES})
 
-target_link_libraries(main
+target_link_libraries(
     global_planner
     pthread
     ${PCL_LIBRARIES}

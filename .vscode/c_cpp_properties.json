@@ -1,0 +1,26 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/src/global_planner/include",
+                "${workspaceFolder}/src/localizer/src",
+                "${workspaceFolder}/src/localizer/src/localizers",
+                "/usr/include/eigen3",
+                "/usr/include/pcl-1.12",
+                "/opt/ros/humble/include",
+                "/home/zxhc/Workspace/ROS2_WS/livox_ws/install/livox_ros_driver2/include",
+                "/usr/include/yaml-cpp",
+                "/usr/local/include"
+            ],
+            "defines": [
+                "SOPHUS_USE_BASIC_LOGGING"
+            ],
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c17",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}

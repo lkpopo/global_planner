@@ -10,7 +10,7 @@
 #include <yaml-cpp/yaml.h>
 
 #include "occupy_map.h"
-#include "planer_utils.h"
+#include "planner.h"
 
 using namespace std;
 
@@ -126,6 +126,8 @@ namespace global_planner
     Eigen::Vector3d origin_, map_size_3d_;
     bool has_global_point;
 
+    std::function<void(const std::string &)> log_cb_;
+
     // 辅助函数
     Eigen::Vector3i posToIndex(Eigen::Vector3d pt);
     void indexToPos(Eigen::Vector3i id, Eigen::Vector3d &pos);
@@ -135,6 +137,7 @@ namespace global_planner
     double getDiagHeu(Eigen::Vector3d x1, Eigen::Vector3d x2);
     double getManhHeu(Eigen::Vector3d x1, Eigen::Vector3d x2);
     double getEuclHeu(Eigen::Vector3d x1, Eigen::Vector3d x2);
+    void log(const std::string &msg);
 
   public:
     double resolution_;
@@ -154,6 +157,7 @@ namespace global_planner
       NO_PATH = 2
     };
 
+    void setLogCallback(std::function<void(const std::string &)> cb);
     // 占据图类
     Occupy_map::Ptr Occupy_map_ptr;
 
@@ -164,7 +168,7 @@ namespace global_planner
     // 搜索
     bool search(Eigen::Vector3d start_pt, Eigen::Vector3d end_pt);
     // 返回路径
-    Path getPath();
+    std::vector<UTM_Location> getPath();
     // 返回访问过的节点
     std::vector<NodePtr> getVisitedNodes();
 

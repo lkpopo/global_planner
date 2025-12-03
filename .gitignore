@@ -5,3 +5,5 @@ install
 log
 bag
 *.pcd
+*.a
+*.o

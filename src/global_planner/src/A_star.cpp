@@ -27,9 +27,9 @@ namespace global_planner
         lambda_heu_ = cfg["lambda_heu"] ? cfg["lambda_heu"].as<double>() : 2.0;
         lambda_cost_ = cfg["lambda_cost"] ? cfg["lambda_cost"].as<double>() : 300.0;
         max_search_num = cfg["max_search_num"] ? cfg["max_search_num"].as<int>() : 100000;
-        resolution_ = cfg["resolution"] ? cfg["resolution"].as<double>() : 0.2;
+        resolution_ = cfg["resolution"] ? cfg["resolution"].as<double>() : 0.5;
         Occupy_map_ptr->cost_inflate = cfg["cost_inflate"] ? cfg["cost_inflate"].as<int>() : 5;
-        Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.5;
+        Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.3;
         Occupy_map_ptr->resolution_ = resolution_;
     }
     catch (...)
@@ -266,17 +266,17 @@ namespace global_planner
     path_nodes_ = prunePathLineOfSight(path_nodes_, Occupy_map_ptr);
   }
 
-  Path Astar::getPath()
+  std::vector<UTM_Location> Astar::getPath()
   {
-    Path path;
-    path.poses.reserve(path_nodes_.size());
+    std::vector<UTM_Location> path;
+    path.reserve(path_nodes_.size());
     
     for (uint i = 0; i < path_nodes_.size(); ++i)
     {
       Eigen::Vector3d v= path_nodes_[i]->position;
-      path.poses.emplace_back(Pose(v.x(),v.y(),v.z()));
+      path.emplace_back(v.x(),v.y(),v.z());
     }
-    path.poses.emplace_back(goal_pos.x(),goal_pos.y(),goal_pos.z());
+    path.emplace_back(goal_pos.x(),goal_pos.y(),goal_pos.z());
     return path;
   }
 
@@ -408,5 +408,22 @@ namespace global_planner
       out.push_back(raw_path.back());
     }
     return out;
+  }
+
+  void Astar::setLogCallback(std::function<void(const std::string &)> cb)
+  {
+      log_cb_ = cb;
+      if(Occupy_map_ptr)
+      {
+          Occupy_map_ptr->setLogCallback(cb);
+      }
+  }
+
+  void Astar::log(const std::string &msg)
+  {
+      if (log_cb_)
+      {
+          log_cb_(msg);
+      }
   }
 }

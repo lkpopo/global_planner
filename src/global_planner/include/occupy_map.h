@@ -14,24 +14,23 @@
 #include <pcl/filters/statistical_outlier_removal.h>
 #include <pcl/filters/voxel_grid.h>
 #include <map>
-using namespace std;
 
 namespace global_planner
 {
 
-class Occupy_map
-{
+    class Occupy_map
+    {
     public:
-        Occupy_map(){}
+        Occupy_map() {}
         // 全局地图点云指针
         pcl::PointCloud<pcl::PointXYZ>::Ptr global_point_cloud_map;
         // 全局膨胀点云指针
         // pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_inflate_vis_;
 
         // 地图是否占据容器， 从编程角度来讲，这就是地图变为单一序列化后的索引
-        std::vector<int> occupancy_buffer_;  // 0 is free, 1 is occupied
+        std::vector<int> occupancy_buffer_; // 0 is free, 1 is occupied
         // 代价地图
-        std::vector<double> cost_map_;  // cost
+        std::vector<double> cost_map_; // cost
         // 地图分辨率
         double resolution_, inv_resolution_;
         // 膨胀参数
@@ -45,7 +44,7 @@ class Occupy_map
         int ifn;
         int inflate_index, cost_index, cost_inflate;
 
-        //初始化
+        // 初始化
         void init();
         // 地图更新函数 - 输入：全局点云
         void map_update_gpcl(const pcl::PointCloud<pcl::PointXYZ>::Ptr global_point);
@@ -68,9 +67,19 @@ class Occupy_map
         // 根据索引返回代价
         double getCost(Eigen::Vector3d &pos);
 
+        void setLogCallback(std::function<void(const std::string &)> cb)
+        {
+            log_cb_ = cb;
+        }
+
         // 定义该类的指针
         typedef std::shared_ptr<Occupy_map> Ptr;
-};
+
+    private:
+        void log(const std::string &msg);
+        
+        std::function<void(const std::string &)> log_cb_;
+    };
 
 }
 

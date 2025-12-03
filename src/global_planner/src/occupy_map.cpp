@@ -291,4 +291,12 @@ namespace global_planner
 
         return occupancy_buffer_[id(0) * grid_size_(1) * grid_size_(2) + id(1) * grid_size_(2) + id(2)];
     }
+
+    void Occupy_map::log(const std::string &msg)
+    {
+        if (log_cb_)
+        {
+            log_cb_(msg);
+        }
+    }
 }

@@ -12,7 +12,6 @@ namespace global_planner
 {
   class Astar;
 
-  using LogCallback = std::function<void(const std::string &)>;
   using PathCallback = std::function<void(const Path &)>;
 
   class GlobalPlannerUGV

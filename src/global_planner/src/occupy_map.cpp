@@ -79,8 +79,8 @@ namespace global_planner
         pcl::getMinMax3D(*global_point_cloud_map, min_pt, max_pt);
 
         // map 尺寸
-        origin_(0) = min_pt.x()-ifn;
-        origin_(1) = min_pt.y()-ifn;
+        origin_(0) = min_pt.x()-ifn-2000;
+        origin_(1) = min_pt.y()-ifn-2000;
         origin_(2) = min_pt.z()-ifn;
         map_size_3d_(0) = max_pt.x() - min_pt.x();
         map_size_3d_(1) = max_pt.y() - min_pt.y();
@@ -102,8 +102,9 @@ namespace global_planner
         fill(occupancy_buffer_.begin(), occupancy_buffer_.end(), 0.0);
         fill(cost_map_.begin(), cost_map_.end(), 0.0);
 
-        min_range_ = origin_;
-        max_range_ = origin_ + map_size_3d_;
+        Eigen::Vector3d add(2000,2000,0);
+        min_range_ = origin_ ;
+        max_range_ = origin_ + map_size_3d_ + add;
 
         std::cout<<"[Occupy_map] Map updated. Size: "
                  << map_size_3d_.x() << " x " << map_size_3d_.y() << " x " << map_size_3d_.z()

@@ -40,7 +40,7 @@ namespace global_planner
         taskStatusCallback_ = nullptr;
         task_status_ = IDLE;
 
-        plan_thread_running_=false;
+        plan_thread_running_ = false;
     }
     planner::~planner()
     {
@@ -150,7 +150,7 @@ namespace global_planner
         stop_thread_ = false;
 
         realtime_nav_thread_ = std::thread([this]()
-                                      {
+                                           {
         size_t reached_index = 0;
         while (!stop_thread_)
         {
@@ -289,9 +289,47 @@ namespace global_planner
         return true;
     }
 
-    bool planner::exeTaskOperation(TaskOperation status)
+    bool planner::exeTaskOperation(TaskOperation op)
     {
-        // TODO: Implement this method
+        // std::lock_guard<std::mutex> lk(data_mutex_);
+
+        switch (op)
+        {
+        case START:
+            if (task_status_ != READY)
+            {
+                log("[planner] Cannot START: Task not READY.");
+                return false;
+            }
+
+            log("[planner] Please setWaypoint.");
+            return true;
+
+        case STOP:
+            if (task_status_ != IN_PROGRESS && task_status_ != READY)
+            {
+                log("[planner] Cannot STOP: Task not running.");
+                return false;
+            }
+
+            log("[planner] STOP operation triggered.");
+
+            // 停止实时线程
+            stop_thread_ = true;
+
+            // 如果规划线程还在运行，也尝试停止
+            plan_thread_running_ = false;
+
+            task_status_ = IDLE;
+            if (taskStatusCallback_)
+                taskStatusCallback_(task_status_);
+
+            return true;
+
+        default:
+            log("[planner] Unsupported TaskOperation.");
+            return false;
+        }
 
         return true;
     }

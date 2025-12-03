@@ -1,52 +1,8 @@
-pcd_path: /home/zxhc/Workspace/Test/Test_code/test.pcd
-cloud_topic: /livox/lidar
-odom_topic: /livox/imu
-map_frame: map
-local_frame: lidar
-update_hz: 1.0
-
-lidar_filter_num: 6
-lidar_min_range: 0.5
-lidar_max_range: 30.0
-scan_resolution: 0.15
-map_resolution: 0.3
-
-cube_len: 300
-det_range: 60
-move_thresh: 1.5
-
-na: 0.01
-ng: 0.01
-nba: 0.0001
-nbg: 0.0001
-
-imu_init_num: 20
-near_search_num: 5
-ieskf_max_iter: 5
-
-gravity_align: true
-esti_il: false
-
-r_il: [1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
-t_il: [-0.011, -0.02329, 0.04412]
-
-lidar_cov_inv: 1000.0
-
-rough_scan_resolution: 0.25
-rough_map_resolution: 0.25
-rough_max_iteration: 5
-rough_score_thresh: 0.2
-
-refine_scan_resolution: 0.1
-refine_map_resolution: 0.1
-refine_max_iteration: 10
-refine_score_thresh: 0.1
-
 lambda_heu: 2.0
 lambda_cost: 300.0
 max_search_num: 100000
-resolution: 0.7
+resolution: 0.5
 
 # 占据地图参数
 cost_inflate: 5
-inflate: 0.3
+inflate: 0.5

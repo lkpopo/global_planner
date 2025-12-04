@@ -51,6 +51,16 @@ namespace global_planner
 
     bool planner::setMap(const std::string &map_path)
     {
+
+        {
+            if (map_loading_)
+            {
+                log("[setMap] Map is currently loading. Ignore this call.\n");
+                return false;
+            }
+            map_loading_ = true;
+        }
+
         // TODO: Implement this method
         pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_;
         cloud_.reset(new pcl::PointCloud<pcl::PointXYZ>());
@@ -64,6 +74,13 @@ namespace global_planner
             log("[GlobalPlannerUGV] PCD loaded, point size: " + std::to_string(cloud_->points.size()) + "\n");
             Astar_ptr->Occupy_map_ptr->map_update_gpcl(cloud_);
             log("[GlobalPlannerUGV] Occupancy map updated from point cloud.\n");
+            {
+                std::lock_guard<std::mutex> lock(map_mutex_);
+                map_ready_ = true;
+                map_loading_ = false;
+            }
+
+            map_cv_.notify_all(); //  唤醒等待地图加载的线程
             return true;
         }
     }
@@ -79,11 +96,13 @@ namespace global_planner
 
     bool planner::setOffset(uavImu imu)
     {
-        std::lock_guard<std::mutex> lk(data_mutex_);
-        imu_offset_ = imu;
-
-        log("[planner] Set IMU offset: x=" + std::to_string(imu.x) +
-            " y=" + std::to_string(imu.y) + " z=" + std::to_string(imu.z));
+        {
+            std::lock_guard<std::mutex> lk(data_mutex_);
+            imu_offset_ = imu;
+            // if(task_status_==IDLE)
+            // log("[planner] Set IMU offset: x=" + std::to_string(imu.x) +
+            //     " y=" + std::to_string(imu.y) + " z=" + std::to_string(imu.z));
+        }
 
         // 试图进行坐标转换计算
         if (task_status_ == IDLE)
@@ -93,10 +112,12 @@ namespace global_planner
 
     bool planner::setUavAttitude(uavAttitude attitude)
     {
-        std::lock_guard<std::mutex> lk(data_mutex_);
-        attitude_ = attitude;
-
-        log("[planner] Set UAV attitude: yaw=" + std::to_string(attitude.yaw));
+        {
+            std::lock_guard<std::mutex> lk(data_mutex_);
+            attitude_ = attitude;
+            // if(task_status_==IDLE)
+            // log("[planner] Set UAV attitude: yaw=" + std::to_string(attitude.yaw));
+        }
 
         if (task_status_ == IDLE)
             tryUpdateLocalToUTMTransform();
@@ -105,11 +126,14 @@ namespace global_planner
 
     bool planner::setCurrLocation(Location location)
     {
-        std::lock_guard<std::mutex> lk(data_mutex_);
-        curr_location_ = location;
+        {
+            std::lock_guard<std::mutex> lk(data_mutex_);
+            curr_location_ = location;
+            // if(task_status_==IDLE)
+            // log("[planner] Set GPS: lat=" + std::to_string(location.la) +
+            //     " lon=" + std::to_string(location.lo));
+        }
 
-        log("[planner] Set GPS: lat=" + std::to_string(location.la) +
-            " lon=" + std::to_string(location.lo));
         if (task_status_ == IDLE)
             tryUpdateLocalToUTMTransform();
         return true;
@@ -120,9 +144,9 @@ namespace global_planner
         full_path_.clear();
 
         Eigen::Vector3d current_start;
-        auto curr_p = utm_waypoints_.front().location; // 起点
-        full_path_.push_back(curr_p);
-        current_start << curr_p.x, curr_p.y, curr_p.z;
+        // auto curr_p = utm_waypoints_.front().location; // 起点
+        // full_path_.push_back(curr_p);
+        // current_start << curr_p.x, curr_p.y, curr_p.z;
 
         for (size_t i = 1; i < utm_waypoints_.size(); ++i)
         {
@@ -225,6 +249,11 @@ namespace global_planner
 
         plan_thread_ = std::thread([this]()
                                    {
+        log("[planner] Waiting for map to be ready.");
+        {
+            std::unique_lock<std::mutex> lock(map_mutex_);
+            map_cv_.wait(lock, [this] { return map_ready_; });
+        }
         log("[planner] Planning thread started.");
 
         bool success = planWaypointsPath();
@@ -382,7 +411,10 @@ namespace global_planner
     {
         std::lock_guard<std::mutex> lk(data_mutex_);
         if (!imu_offset_ || !attitude_ || !curr_location_)
+        {
+            log("[planner] Timestamps not aligned.");
             return false;
+        }
 
         double t1 = imu_offset_->timeStamp;
         double t2 = attitude_->timeStamp;

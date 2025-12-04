@@ -8,6 +8,7 @@
 #include <thread>
 #include <memory>
 #include <optional>
+#include <condition_variable>
 
 namespace global_planner
 {
@@ -127,9 +128,13 @@ namespace global_planner
         void startRealtimeThread();
         void startPlanThread();
         std::atomic<bool> stop_thread_{false};
-        std::atomic<bool> pause_flag_{false};
-
         bool plan_thread_running_;
+
+        std::mutex map_mutex_;
+        std::condition_variable map_cv_;
+        bool map_ready_ = false;
+        bool map_loading_ = false;
+
 
         // local——>UTM坐标系转换
         bool tryUpdateLocalToUTMTransform();

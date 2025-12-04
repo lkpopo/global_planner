@@ -18,7 +18,8 @@ namespace global_planner
   bool Astar::init(std::string config_path)
   {
     // 初始化占据地图
-    Occupy_map_ptr.reset(new Occupy_map);
+    if(!Occupy_map_ptr)
+      Occupy_map_ptr.reset(new Occupy_map);
     
     YAML::Node cfg;
     try
@@ -32,9 +33,10 @@ namespace global_planner
         Occupy_map_ptr->inflate_ = cfg["inflate"] ? cfg["inflate"].as<double>() : 0.3;
         Occupy_map_ptr->resolution_ = resolution_;
     }
-    catch (...)
+    catch (const std::exception& e)
     {
-        return false;
+      std::cerr << "YAML load error: " << e.what() << std::endl;
+      return false;
     }
     // lambda_heu_ = 2.0;
     // lambda_cost_ = 300.0;
@@ -412,6 +414,10 @@ namespace global_planner
 
   void Astar::setLogCallback(std::function<void(const std::string &)> cb)
   {
+    // 有可能先调用
+    if(!Occupy_map_ptr)
+      Occupy_map_ptr.reset(new Occupy_map);
+
       log_cb_ = cb;
       if(Occupy_map_ptr)
       {

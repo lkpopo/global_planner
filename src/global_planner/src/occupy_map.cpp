@@ -1,4 +1,6 @@
 #include <occupy_map.h>
+#include <thread>
+#include <omp.h>
 
 namespace global_planner
 {
@@ -10,7 +12,7 @@ namespace global_planner
         // inflate_=0.5;
         // cost_inflate=5;
         inv_resolution_ = 1.0 / resolution_;
-        
+
         // 膨胀格子数 = 膨胀距离/分辨率
         // ceil返回大于或者等于指定表达式的最小整数
         ifn = ceil(inflate_ * inv_resolution_);
@@ -82,24 +84,23 @@ namespace global_planner
         // Eigen::Vector3d min3d(min_pt.x(), min_pt.y(), min_pt.z());
         // Eigen::Vector3d max3d(max_pt.x(), max_pt.y(), max_pt.z());
         // map 尺寸
-        origin_(0) = min_pt.x()-ifn;
-        origin_(1) = min_pt.y()-ifn;
-        origin_(2) = min_pt.z()-ifn;
-        map_size_3d_(0) = max_pt.x() - min_pt.x()+300;
-        map_size_3d_(1) = max_pt.y() - min_pt.y()+300;
+        origin_(0) = min_pt.x() - ifn;
+        origin_(1) = min_pt.y() - ifn;
+        origin_(2) = min_pt.z() - ifn;
+        map_size_3d_(0) = max_pt.x() - min_pt.x();
+        map_size_3d_(1) = max_pt.y() - min_pt.y();
         map_size_3d_(2) = max_pt.z() - min_pt.z();
         // origin_ = min3d - Eigen::Vector3d(margin, margin, margin);
         // map_size_3d_ = (max3d - min3d) + 2.0 * Eigen::Vector3d(margin, margin, margin);
 
-
-        std::cout<< "origin: "<< origin_.x() <<" "<< origin_.y() <<" "<< origin_.z() <<std::endl;
-        std::cout<< "map size: "<< map_size_3d_.x() <<" "<< map_size_3d_.y() <<" "<< map_size_3d_.z() <<std::endl;
+        std::cout << "origin: " << origin_.x() << " " << origin_.y() << " " << origin_.z() << std::endl;
+        std::cout << "map size: " << map_size_3d_.x() << " " << map_size_3d_.y() << " " << map_size_3d_.z() << std::endl;
 
         for (int i = 0; i < 3; ++i)
         {
             // 占据图尺寸 = 地图尺寸 / 分辨率
             grid_size_(i) = ceil(ifn * map_size_3d_(i) / resolution_);
-            std::cout<<"grid size "<<i<<" is "<<grid_size_(i)<<std::endl;
+            std::cout << "grid size " << i << " is " << grid_size_(i) << std::endl;
         }
 
         // 占据容器的大小 = 占据图尺寸 x*y*z
@@ -111,14 +112,14 @@ namespace global_planner
         min_range_ = origin_;
         max_range_ = origin_ + map_size_3d_;
 
-        std::cout<<"[Occupy_map] Map updated. Size: "
-                 << map_size_3d_.x() << " x " << map_size_3d_.y() << " x " << map_size_3d_.z()
-                 << ", Grid size: " << grid_size_.x() << " x " << grid_size_.y() << " x " << grid_size_.z() << std::endl;
+        std::cout << "[Occupy_map] Map updated. Size: "
+                  << map_size_3d_.x() << " x " << map_size_3d_.y() << " x " << map_size_3d_.z()
+                  << ", Grid size: " << grid_size_.x() << " x " << grid_size_.y() << " x " << grid_size_.z() << std::endl;
         inflate_point_cloud();
 
         double margin = 500.0;
-        min_range_ = origin_ - Eigen::Vector3d(margin, margin, 0);
-        max_range_ = origin_ + map_size_3d_ + Eigen::Vector3d(margin, margin, 0);
+        // min_range_ = origin_ - Eigen::Vector3d(margin, margin, 0);
+        // max_range_ = origin_ + map_size_3d_ + Eigen::Vector3d(margin, margin, 0);
     }
 
     // 当global_planning节点接收到点云消息更新时，进行设置点云指针并膨胀
@@ -126,63 +127,46 @@ namespace global_planner
     // 路径规划的时候是用的occupancy_buffer_
     void Occupy_map::inflate_point_cloud(void)
     {
-        // 转化为PCL的格式进行处理
-        pcl::PointCloud<pcl::PointXYZ> latest_global_cloud_ = *global_point_cloud_map;
-
-        if ((int)latest_global_cloud_.points.size() == 0)
-        {
+        pcl::PointCloud<pcl::PointXYZ> cloud = *global_point_cloud_map;
+        if (cloud.empty())
             return;
-        }
 
-        pcl::PointXYZ pt_inf;
-        Eigen::Vector3d p3d, p3d_inf, p3d_cost;
+        // 开线程数量（也可不设，让OMP自动选择）
+        omp_set_num_threads(std::thread::hardware_concurrency());
 
-        // 遍历全局点云中的所有点
-        for (size_t i = 0; i < latest_global_cloud_.points.size(); ++i)
+#pragma omp parallel for schedule(dynamic)
+        for (int i = 0; i < cloud.size(); ++i)
         {
-            // 取出第i个点
-            p3d(0) = latest_global_cloud_.points[i].x;
-            p3d(1) = latest_global_cloud_.points[i].y;
-            p3d(2) = latest_global_cloud_.points[i].z;
+            Eigen::Vector3d p3d, p3d_inf, p3d_cost;
 
-            // 若取出的点不在地图内（膨胀时只考虑地图范围内的点）
+            p3d << cloud[i].x, cloud[i].y, cloud[i].z;
+
             if (!isInMap(p3d))
-            {
                 continue;
-            }
 
-            // cost map update
+            // 更新 cost map
             for (int j = 0; j < cost_index; j++)
             {
-                p3d_cost(0) = p3d(0) + enum_p_cost[j](0);
-                p3d_cost(1) = p3d(1) + enum_p_cost[j](1);
-                p3d_cost(2) = p3d(2);
-                this->updateCostMap(p3d_cost, 1.0 / enum_p_cost[j](2));
+                p3d_cost.x() = p3d.x() + enum_p_cost[j][0];
+                p3d_cost.y() = p3d.y() + enum_p_cost[j][1];
+                p3d_cost.z() = p3d.z();
+
+                updateCostMap(p3d_cost, 1.0 / enum_p_cost[j][2]);
             }
 
-            // 根据膨胀距离，膨胀该点
-            for (int i = 0; i < inflate_index; i++)
+            // 膨胀
+            for (int k = 0; k < inflate_index; k++)
             {
-                p3d_inf(0) = p3d(0) + enum_p[i](0);
-                p3d_inf(1) = p3d(1) + enum_p[i](1);
-                p3d_inf(2) = p3d(2) + enum_p[i](2);
+                p3d_inf = p3d + enum_p[k];
 
-                // 若膨胀的点不在地图内（膨胀时只考虑地图范围内的点）
                 if (!isInMap(p3d_inf))
-                {
                     continue;
-                }
 
-                // pt_inf.x = p3d_inf(0);
-                // pt_inf.y = p3d_inf(1);
-                // pt_inf.z = p3d_inf(2);
-                // cloud_inflate_vis_->push_back(pt_inf); // 暂时不需要可视化显示
-                // 设置膨胀后的点被占据（不管他之前是否被占据）
-                this->setOccupancy(p3d_inf, 1);
+                setOccupancy(p3d_inf, 1);
             }
         }
 
-        std::cout << "[Occupy_map] Inflation completed." << std::endl;
+        std::cout << "[Occupy_map] Inflation completed (OpenMP)." << std::endl;
     }
 
     void Occupy_map::setOccupancy(Eigen::Vector3d &pos, int occ)

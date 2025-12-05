@@ -282,18 +282,18 @@ namespace global_planner
 
         plan_thread_running_ = false; });
 
-        plan_thread_.detach();
+        // plan_thread_.detach();
     }
 
     bool planner::setWaypoint(std::vector<waypoint> &waypoints)
     {
         std::lock_guard<std::mutex> lk(data_mutex_);
 
-        if (task_status_ != READY)
-        {
-            log("[planner] Cannot set waypoints: Task not in READY state.\n");
-            return false;
-        }
+        // if (task_status_ != READY)
+        // {
+        //     log("[planner] Cannot set waypoints: Task not in READY state.\n");
+        //     return false;
+        // }
 
         original_waypoints_ = waypoints;
 

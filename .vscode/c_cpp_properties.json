@@ -11,7 +11,10 @@
                 "/opt/ros/humble/include",
                 "/home/zxhc/Workspace/ROS2_WS/livox_ws/install/livox_ros_driver2/include",
                 "/usr/include/yaml-cpp",
-                "/usr/local/include"
+                "/usr/local/include",
+                "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/3party/pugixml",
+                "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/3party/miniz"
+
             ],
             "defines": [
                 "SOPHUS_USE_BASIC_LOGGING"

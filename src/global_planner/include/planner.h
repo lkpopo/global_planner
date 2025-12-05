@@ -107,7 +107,7 @@ namespace global_planner
 
     class planner
     {
-    private:
+    public:
         /*** === 子模块 === ***/
         std::shared_ptr<Astar> Astar_ptr;
 

@@ -24,6 +24,8 @@ add_definitions(${PCL_DEFINITIONS})
 # 查找yaml-cpp
 find_package(yaml-cpp REQUIRED)
 
+find_package(OpenMP REQUIRED)
+
 # include dirs
 include_directories(
     include
@@ -32,20 +34,25 @@ include_directories(
     ${PCL_INCLUDE_DIRS}
 
 )
-
+include(${CMAKE_CURRENT_SOURCE_DIR}/3party/miniz/miniz.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/3party/pugixml/pugixml.cmake)
 # ------------------- 全功能静态库 -------------------
 set(SOURCES
     src/planner.cpp
     src/A_star.cpp
     src/occupy_map.cpp
 )
-# add_executable(main src/main.cpp)
+add_executable(main src/main.cpp WaylineManager.cpp)
 
 add_library(global_planner STATIC ${SOURCES})
 
 target_link_libraries(
+    main
     global_planner
+    OpenMP::OpenMP_CXX
     pthread
+    miniz_lib 
+    pugixml_lib
     ${PCL_LIBRARIES}
     yaml-cpp
 )

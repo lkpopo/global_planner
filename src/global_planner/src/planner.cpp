@@ -39,7 +39,7 @@ namespace global_planner
         Astar_ptr = std::make_shared<Astar>();
         plannedWaypointsCallback_ = nullptr;
         realTimeUTMCallback_ = nullptr;
-        waypointReachedCallback_ = nullptr;
+        // waypointReachedCallback_ = nullptr;
         taskStatusCallback_ = nullptr;
         task_status_ = IDLE;
 
@@ -51,7 +51,6 @@ namespace global_planner
 
     bool planner::setMap(const std::string &map_path)
     {
-
         {
             if (map_loading_)
             {
@@ -144,9 +143,9 @@ namespace global_planner
         full_path_.clear();
 
         Eigen::Vector3d current_start;
-        // auto curr_p = utm_waypoints_.front().location; // 起点
+        auto curr_p = utm_waypoints_.front().location; // 起点
         // full_path_.push_back(curr_p);
-        // current_start << curr_p.x, curr_p.y, curr_p.z;
+        current_start << curr_p.x, curr_p.y, curr_p.z;
 
         for (size_t i = 1; i < utm_waypoints_.size(); ++i)
         {
@@ -167,6 +166,8 @@ namespace global_planner
 
             current_start = current_goal;
         }
+        if(plannedWaypointsCallback_)
+            plannedWaypointsCallback_(full_path_);
         log("[planner] Full path planned successfully. Total nodes: " + std::to_string(full_path_.size()));
 
         return true;
@@ -200,7 +201,7 @@ namespace global_planner
                 utm.z = current_utm(2);
                 realTimeUTMCallback_(utm);
             }
-
+            /*
             // 检查当前航点是否到达
             if (reached_index < utm_waypoints_.size())
             {
@@ -230,7 +231,7 @@ namespace global_planner
                     reached_index++;
                 }
             }
-
+            */
             std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 控制循环频率
         }
 
@@ -378,11 +379,11 @@ namespace global_planner
         return;
     }
 
-    void planner::setWaypointReachedCallback(WaypointReachedCallback callback)
-    {
-        waypointReachedCallback_ = callback;
-        return;
-    }
+    // void planner::setWaypointReachedCallback(WaypointReachedCallback callback)
+    // {
+    //     waypointReachedCallback_ = callback;
+    //     return;
+    // }
 
     void planner::setTaskStatusCallback(TaskStatusCallback callback)
     {

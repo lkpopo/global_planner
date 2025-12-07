@@ -101,7 +101,7 @@ namespace global_planner
 
     using PlannedWaypointsCallback = std::function<void(const std::vector<UTM_Location> &)>;
     using RealTimeUTMCallback = std::function<void(const UTM_Location &)>;
-    using WaypointReachedCallback = std::function<void(const reachedPoint &)>;
+    // using WaypointReachedCallback = std::function<void(const reachedPoint &)>;
     using TaskStatusCallback = std::function<void(TaskStatus)>;
     using LogCallback = std::function<void(const std::string &)>;
 
@@ -114,7 +114,7 @@ namespace global_planner
         /*** === 回调函数 === ***/
         PlannedWaypointsCallback plannedWaypointsCallback_;
         RealTimeUTMCallback realTimeUTMCallback_;
-        WaypointReachedCallback waypointReachedCallback_;
+        // WaypointReachedCallback waypointReachedCallback_;
         TaskStatusCallback taskStatusCallback_;
         LogCallback logCallback_;
 
@@ -189,7 +189,7 @@ namespace global_planner
         void setRealTimeUTMCallback(RealTimeUTMCallback callback);
 
         // 设置到达途径点时的callback,返回的时之前给我的航点信息
-        void setWaypointReachedCallback(WaypointReachedCallback callback);
+        // void setWaypointReachedCallback(WaypointReachedCallback callback);
 
         // 设置获取当前航线状态的callback
         void setTaskStatusCallback(TaskStatusCallback callback);

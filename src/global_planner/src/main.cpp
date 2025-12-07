@@ -1,22 +1,30 @@
 #include <iostream>
-#include "planner.h"   // 你库里的头文件路径记得改
-#include <iomanip> // 包含设置精度的函数
+#include "planner.h" // 你库里的头文件路径记得改
+#include <iomanip>   // 包含设置精度的函数
 #include "WaylineManager.h"
 
-
-int main() {
+int main()
+{
     global_planner::planner loc;
-    
-    loc.setLogCallback([](const std::string &msg){
-    std::cout << "[LOG] " << msg << std::endl;
-});
+
+    loc.setLogCallback([](const std::string &msg)
+                       { std::cout << "[LOG] " << msg << std::endl; });
+
+    loc.setPlannedWaypointsCallback([](const std::vector<global_planner::UTM_Location> &path)
+                                    {
+                                        for (auto p : path)
+                                        {
+                                            std::cout << p.x << "," << p.y << "," << p.z << std::endl;
+                                        }
+                                    });
+
     bool res = loc.setConfig("/home/zxhc/Workspace/ROS2_WS/global_planner/src/config.yaml");
-    if(!res)
+    if (!res)
     {
-        std::cout<<"failed init config"<<std::endl;
+        std::cout << "failed init config" << std::endl;
         return -1;
     }
-    std::string path="/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
+    std::string path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
     loc.setMap(path);
     std::string map_path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
     WaylineManager wayline("/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/linepoints.kmz");
@@ -30,8 +38,9 @@ int main() {
     loc.setWaypoint(waypoints);
 
     loc.plan_thread_.join();
-    
-    // 纬度-经度-海拔 
+    loc.exeTaskOperation(global_planner::STOP);
+
+    // 纬度-经度-海拔
     // loc.setStart(Eigen::Vector3d( 33.30569241579879, 117.53958862130553, 240.0)); // 示例起点 UTM 坐标
     // loc.setGoal(Eigen::Vector3d(33.30508034861615, 117.54136865442646, 245.0));  // 示例终点 UTM 坐标
     // loc.planAsync();

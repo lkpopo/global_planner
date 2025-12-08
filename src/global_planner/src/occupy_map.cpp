@@ -142,75 +142,88 @@ namespace global_planner
     // 当global_planning节点接收到点云消息更新时，进行设置点云指针并膨胀
     // Astar规划路径时，采用的是此处膨胀后的点云（setOccupancy只在本函数中使用）
     // 路径规划的时候是用的occupancy_buffer_
-    /*
-        void Occupy_map::inflate_point_cloud()
+
+    void Occupy_map::inflate_point_cloud()
+    {
+        pcl::PointCloud<pcl::PointXYZ> cloud = *global_point_cloud_map;
+        if (cloud.empty())
+            return;
+
+        pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
+        kdtree.setInputCloud(global_point_cloud_map);
+
+        size_t t0 = clock();
+
+        int Nx = grid_size_(0), Ny = grid_size_(1), Nz = grid_size_(2);
+
+        double search_radius = ifn;   // 你膨胀的范围（例如 0.5m）
+        double cost_radius = 2 * ifn; // cost map 范围
+
+        std::vector<uint8_t> occ_mark(Nx * Ny * Nz, 0);
+        std::vector<uint8_t> visited(Nx * Ny * Nz, 0);
+        std::vector<double> cost_mark(Nx * Ny * Nz, 0.0);
+
+        // 全局或局部 static 原子计数器
+        std::atomic<int> progress_counter(0);
+        int total_voxels = Nx * Ny * Nz;
+#pragma omp parallel for schedule(static)
+        for (int ix = 0; ix < Nx; ix++)
         {
-            pcl::PointCloud<pcl::PointXYZ> cloud = *global_point_cloud_map;
-            if (cloud.empty())
-                return;
-
-            pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
-            kdtree.setInputCloud(global_point_cloud_map);
-
-            size_t t0 = clock();
-
-            int Nx = grid_size_(0), Ny = grid_size_(1), Nz = grid_size_(2);
-
-            double search_radius = ifn; // 你膨胀的范围（例如 0.5m）
-            double cost_radius = ifn;   // cost map 范围
-
-            std::vector<uint8_t> occ_mark(Nx * Ny * Nz, 0);
-            std::vector<uint8_t> visited(Nx * Ny * Nz, 0);
-            std::vector<double> cost_mark(Nx * Ny * Nz, -1.0);
-
-    #pragma omp parallel for schedule(static)
-            for (int ix = 0; ix < Nx; ix++)
+            for (int iy = 0; iy < Ny; iy++)
             {
-                for (int iy = 0; iy < Ny; iy++)
+                for (int iz = 0; iz < Nz; iz++)
                 {
-                    for (int iz = 0; iz < Nz; iz++)
+                    int idx = ix * Ny * Nz + iy * Nz + iz;
+                    if (visited[idx])
+                        continue;
+                    Eigen::Vector3i id(ix, iy, iz);
+                    Eigen::Vector3d pos;
+                    indexToPos(id, pos);
+                    pcl::PointXYZ searchPoint(pos.x(), pos.y(), pos.z());
+
+                    // -------- KD-tree 查询 ----------
+                    std::vector<int> idx_out;
+                    std::vector<float> dist_out;
+
+                    if (kdtree.radiusSearch(searchPoint, search_radius, idx_out, dist_out) > 0)
                     {
-                        int idx = ix * Ny * Nz + iy * Nz + iz;
-                        if (visited[idx])
-                            continue;
-                        Eigen::Vector3i id(ix, iy, iz);
-                        Eigen::Vector3d pos;
-                        indexToPos(id, pos);
-                        pcl::PointXYZ searchPoint(pos.x(), pos.y(), pos.z());
+                        visited[idx] = 1;
+                        occ_mark[idx] = 1;
+                    }
 
-                        // -------- KD-tree 查询 ----------
-                        std::vector<int> idx_out;
-                        std::vector<float> dist_out;
+                    // cost 查询
+                    if (kdtree.radiusSearch(searchPoint, cost_radius, idx_out, dist_out) > 0)
+                    {
+                        // visited[idx] = 1;
+                        cost_mark[idx] = computeCost(dist_out);
+                    }
 
-                        if (kdtree.radiusSearch(searchPoint, search_radius, idx_out, dist_out) > 0)
-                        {
-                            visited[idx] = 1;
-                            occ_mark[idx] = 1;
-                        }
-
-                        // cost 查询
-                        if (kdtree.radiusSearch(searchPoint, cost_radius, idx_out, dist_out) > 0)
-                        {
-                            visited[idx] = 1;
-                            cost_mark[idx] = computeCost(dist_out);
-                        }
+                    // ----------- 进度打印部分 -----------
+                    int finished = ++progress_counter;
+                    if (finished % 50000 == 0) // 每 5 万个格子打印一次
+                    {
+                        double percent = 100.0 * finished / total_voxels;
+                        log("\r[Occupy_map] Inflate Progress: %.2f%% (%d / %d)", percent, finished, total_voxels);
+                        fflush(stdout);
                     }
                 }
             }
-    #pragma omp parallel for
-            for (int i = 0; i < Nx * Ny * Nz; i++)
-            {
-                if (occ_mark[i])
-                    occupancy_buffer_[i] = 1;
-
-                if (cost_mark[i] > 0)
-                    cost_map_[i] = cost_mark[i];
-            }
-
-            double t = (clock() - t0) * 1.0 / CLOCKS_PER_SEC;
-            log("[Occupy_map] Inflation optimized in " + std::to_string(t) + " seconds.");
         }
-    */
+        std::cout << "map over!" << std::endl;
+#pragma omp parallel for
+        for (int i = 0; i < Nx * Ny * Nz; i++)
+        {
+            if (occ_mark[i])
+                occupancy_buffer_[i] = 1;
+
+            if (cost_mark[i] > 0)
+                cost_map_[i] = cost_mark[i];
+        }
+
+        double t = (clock() - t0) * 1.0 / CLOCKS_PER_SEC;
+        log("[Occupy_map] Inflation optimized in " + std::to_string(t) + " seconds.");
+    }
+
     void Occupy_map::setOccupancy(Eigen::Vector3d &pos, int occ)
     {
         Eigen::Vector3i id;

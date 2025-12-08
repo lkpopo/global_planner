@@ -203,7 +203,7 @@ namespace global_planner
                     if (finished % 50000 == 0) // 每 5 万个格子打印一次
                     {
                         double percent = 100.0 * finished / total_voxels;
-                        log("\r[Occupy_map] Inflate Progress: %.2f%% (%d / %d)", percent, finished, total_voxels);
+                        std::cout << "\r[Occupy_map] Inflate Progress: " << percent << "% (" << finished << " / " << total_voxels << ")";
                         fflush(stdout);
                     }
                 }

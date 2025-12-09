@@ -95,7 +95,6 @@ namespace global_planner
 
     bool planner::setOffset(uavImu imu)
     {
-        static int print_count = 0;
         {
             std::lock_guard<std::mutex> lk(data_mutex_);
             imu_offset_ = imu;
@@ -103,27 +102,7 @@ namespace global_planner
             // log("[planner] Set IMU offset: x=" + std::to_string(imu.x) +
             //     " y=" + std::to_string(imu.y) + " z=" + std::to_string(imu.z));
         }
-        print_count++;
-        if (print_count % 10 == 0)
-        {
-            std::ostringstream oss;
-            oss << "[planner] [DEBUG] setOffset(): "
-                << "offset = (" << imu.x << ", " << imu.y << ", " << imu.z << ")";
-
-            // 打印转换矩阵（四元数 + 平移）
-            oss << "  |  Q = ["
-                << impl_->loc2utm_Q.w() << ", "
-                << impl_->loc2utm_Q.x() << ", "
-                << impl_->loc2utm_Q.y() << ", "
-                << impl_->loc2utm_Q.z() << "]";
-
-            oss << "  T = ("
-                << impl_->loc2utm_T.x() << ", "
-                << impl_->loc2utm_T.y() << ", "
-                << impl_->loc2utm_T.z() << ")";
-
-            log(oss.str());
-        }
+        
         // 试图进行坐标转换计算
         if (task_status_ == IDLE)
             tryUpdateLocalToUTMTransform();
@@ -165,6 +144,7 @@ namespace global_planner
 
         Eigen::Vector3d current_start;
         auto curr_p = utm_waypoints_.front().location; // 起点
+        int index=0;
         // full_path_.push_back(curr_p);
         current_start << curr_p.x, curr_p.y, curr_p.z;
 
@@ -181,6 +161,9 @@ namespace global_planner
             }
 
             auto segment = Astar_ptr->getPath(); // 或 retrievePath() 返回最终路径
+            segment.begin()->index = index++;
+            (segment.end()-1)->index = index;
+
             if (!full_path_.empty() && !segment.empty())
                 segment.erase(segment.begin()); // 去掉重复起点
             full_path_.insert(full_path_.end(), segment.begin(), segment.end());

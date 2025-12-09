@@ -79,6 +79,7 @@ namespace global_planner
     struct UTM_Location
     {
         double x = 0, y = 0, z = 0;
+        int index=-1;
         UTM_Location() {}
         UTM_Location(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
     };
@@ -92,12 +93,12 @@ namespace global_planner
     };
 
     // 返回到达点位时，的航点相关信息
-    struct reachedPoint
-    {
-        UTM_waypoint wp;
-        int index = 0;
-        int total = 0;
-    };
+    // struct reachedPoint
+    // {
+    //     UTM_waypoint wp;
+    //     int index = 0;
+    //     int total = 0;
+    // };
 
     using PlannedWaypointsCallback = std::function<void(const std::vector<UTM_Location> &)>;
     using RealTimeUTMCallback = std::function<void(const UTM_Location &)>;

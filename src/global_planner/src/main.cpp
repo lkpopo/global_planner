@@ -60,8 +60,8 @@ int main()
 
     loc.setWaypoint(waypoints);
 
-    loc.plan_thread_.join();
-    loc.exeTaskOperation(global_planner::STOP);
+    // loc.plan_thread_.join();
+    // loc.exeTaskOperation(global_planner::STOP);
 
     // 纬度-经度-海拔
     // loc.setStart(Eigen::Vector3d( 33.30569241579879, 117.53958862130553, 240.0)); // 示例起点 UTM 坐标

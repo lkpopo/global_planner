@@ -127,6 +127,7 @@ namespace global_planner
         /*** === 主线程相关 === ***/
         std::thread realtime_nav_thread_, plan_thread_;
         void startRealtimeThread();
+        void stop();
         void startPlanThread();
         std::atomic<bool> stop_thread_{false};
         bool plan_thread_running_;

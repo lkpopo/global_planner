@@ -47,6 +47,7 @@ namespace global_planner
     }
     planner::~planner()
     {
+        stop();
     }
 
     bool planner::setMap(const std::string &map_path)
@@ -102,7 +103,7 @@ namespace global_planner
             // log("[planner] Set IMU offset: x=" + std::to_string(imu.x) +
             //     " y=" + std::to_string(imu.y) + " z=" + std::to_string(imu.z));
         }
-        
+
         // 试图进行坐标转换计算
         if (task_status_ == IDLE)
             tryUpdateLocalToUTMTransform();
@@ -144,7 +145,7 @@ namespace global_planner
 
         Eigen::Vector3d current_start;
         auto curr_p = utm_waypoints_.front().location; // 起点
-        int index=0;
+        int index = 0;
         // full_path_.push_back(curr_p);
         current_start << curr_p.x, curr_p.y, curr_p.z;
 
@@ -162,7 +163,7 @@ namespace global_planner
 
             auto segment = Astar_ptr->getPath(); // 或 retrievePath() 返回最终路径
             segment.begin()->index = index++;
-            (segment.end()-1)->index = index;
+            (segment.end() - 1)->index = index;
 
             if (!full_path_.empty() && !segment.empty())
                 segment.erase(segment.begin()); // 去掉重复起点
@@ -453,6 +454,28 @@ namespace global_planner
         double t_min = std::min({t1, t2, t3});
         double t_max = std::max({t1, t2, t3});
         return (t_max - t_min) <= TIME_SYNC_THRESHOLD;
+    }
+
+    void planner::stop()
+    {
+        {
+            std::lock_guard<std::mutex> lk(data_mutex_);
+            stop_thread_ = true; // 通知实时线程退出
+        }
+
+        // 唤醒可能阻塞的 plan 线程
+        {
+            std::lock_guard<std::mutex> lk(map_mutex_);
+            map_ready_ = true;
+        }
+        map_cv_.notify_all();
+
+        // -------- join 两个线程 ----------
+        if (realtime_nav_thread_.joinable())
+            realtime_nav_thread_.join();
+
+        if (plan_thread_.joinable())
+            plan_thread_.join();
     }
 
     int lonToUTMZone(double lon)

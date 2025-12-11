@@ -146,7 +146,6 @@ namespace global_planner
         Eigen::Vector3d current_start;
         auto curr_p = utm_waypoints_.front().location; // 起点
         int index = 0;
-        // full_path_.push_back(curr_p);
         current_start << curr_p.x, curr_p.y, curr_p.z;
 
         for (size_t i = 1; i < utm_waypoints_.size(); ++i)
@@ -175,6 +174,7 @@ namespace global_planner
             plannedWaypointsCallback_(full_path_);
         log("[planner] Full path planned successfully. Total nodes: " + std::to_string(full_path_.size()));
 
+        Astar_ptr->reset();
         return true;
     }
 
@@ -206,37 +206,6 @@ namespace global_planner
                 utm.z = current_utm(2);
                 realTimeUTMCallback_(utm);
             }
-            /*
-            // 检查当前航点是否到达
-            if (reached_index < utm_waypoints_.size())
-            {
-                const auto &wp = utm_waypoints_[reached_index].location;
-                double dx = wp.x - current_utm(0);
-                double dy = wp.y - current_utm(1);
-                double dz = wp.z - current_utm(2);
-                double dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-
-                if (dist <= WAYPOINT_REACHED_DIST)
-                {
-                    // 回调航点到达
-                    if (waypointReachedCallback_)
-                    {
-                        reachedPoint rp;
-                        rp.index = static_cast<int>(reached_index);
-                        rp.total = static_cast<int>(utm_waypoints_.size());
-                        rp.wp.location.x = wp.x;
-                        rp.wp.location.y = wp.y;
-                        rp.wp.location.z = wp.z;
-                        rp.wp.attitude = utm_waypoints_[reached_index].attitude;
-                        rp.wp.gimbal = utm_waypoints_[reached_index].gimbal;
-
-                        waypointReachedCallback_(rp);
-                    }
-
-                    reached_index++;
-                }
-            }
-            */
             std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 控制循环频率
         }
 
@@ -250,6 +219,12 @@ namespace global_planner
             log("[planner] Plan thread already running.");
             return;
         }
+        
+        if (plan_thread_.joinable())
+        {
+            log("[planner] Joining previous planning thread.");
+            plan_thread_.join();
+        }
 
         plan_thread_running_ = true;
 
@@ -261,7 +236,7 @@ namespace global_planner
             map_cv_.wait(lock, [this] { return map_ready_; });
         }
         log("[planner] Planning thread started.");
-
+        std::cout<<"Planning thread started."<<std::endl;
         bool success = planWaypointsPath();
 
         if (!success)
@@ -283,44 +258,40 @@ namespace global_planner
 
         log("[planner] Planning success, starting real-time thread.");
 
-        // 自动启动实时变换线程
-        // startRealtimeThread();
-
         plan_thread_running_ = false; });
-
-        // plan_thread_.detach();
     }
 
     bool planner::setWaypoint(std::vector<waypoint> &waypoints)
     {
-        std::lock_guard<std::mutex> lk(data_mutex_);
-
-        // if (task_status_ != READY)
-        // {
-        //     log("[planner] Cannot set waypoints: Task not in READY state.\n");
-        //     return false;
-        // }
-
-        original_waypoints_ = waypoints;
-
-        // 转换航线点，转换到utm坐标系下面
-        utm_waypoints_.clear();
-        for (const auto &wp : original_waypoints_)
         {
-            UTM_waypoint utm_wp;
-            Eigen::Vector3d utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al, utm_zone_);
-            utm_wp.location.x = utm_coor(0);
-            utm_wp.location.y = utm_coor(1);
-            utm_wp.location.z = utm_coor(2);
-            utm_wp.attitude = wp.attitude;
-            utm_wp.gimbal = wp.gimbal;
-            utm_waypoints_.push_back(utm_wp);
-        }
-        task_status_ = IN_PROGRESS;
-        if (taskStatusCallback_)
-            taskStatusCallback_(task_status_);
-        log("[planner] Waypoints set successfully. Total waypoints: " + std::to_string(utm_waypoints_.size()) + "\n");
+            std::lock_guard<std::mutex> lk(data_mutex_);
 
+            // if (task_status_ != READY)
+            // {
+            //     log("[planner] Cannot set waypoints: Task not in READY state.\n");
+            //     return false;
+            // }
+
+            original_waypoints_ = waypoints;
+
+            // 转换航线点，转换到utm坐标系下面
+            utm_waypoints_.clear();
+            for (const auto &wp : original_waypoints_)
+            {
+                UTM_waypoint utm_wp;
+                Eigen::Vector3d utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al, utm_zone_);
+                utm_wp.location.x = utm_coor(0);
+                utm_wp.location.y = utm_coor(1);
+                utm_wp.location.z = utm_coor(2);
+                utm_wp.attitude = wp.attitude;
+                utm_wp.gimbal = wp.gimbal;
+                utm_waypoints_.push_back(utm_wp);
+            }
+            task_status_ = IN_PROGRESS;
+            if (taskStatusCallback_)
+                taskStatusCallback_(task_status_);
+            log("[planner] Waypoints set successfully. Total waypoints: " + std::to_string(utm_waypoints_.size()) + "\n");
+        }
         // 设置航线成功后开始路径规划
         startPlanThread();
 

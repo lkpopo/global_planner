@@ -4,6 +4,8 @@
 #include "WaylineManager.h"
 #include <Eigen/Dense>
 #include "utils.hpp"
+#include <unistd.h>
+
 int main()
 {
     global_planner::planner loc;
@@ -58,6 +60,9 @@ int main()
                   << "Z: " << Utm_coor(2) << std::endl;
     }
 
+    loc.setWaypoint(waypoints);
+
+    sleep(2); // 等待一秒以确保前面的设置完成
     loc.setWaypoint(waypoints);
 
     // loc.plan_thread_.join();

@@ -257,6 +257,10 @@ namespace global_planner
         task_status_ = COMPLETED;
         if (taskStatusCallback_) taskStatusCallback_(task_status_);
 
+        // 重新进入READY状态
+        task_status_ = READY;
+        if (taskStatusCallback_) taskStatusCallback_(task_status_);
+
         log("[planner] Planning success, starting real-time thread.");
 
         plan_thread_running_ = false; });
@@ -267,11 +271,11 @@ namespace global_planner
         {
             std::lock_guard<std::mutex> lk(data_mutex_);
 
-            // if (task_status_ != READY)
-            // {
-            //     log("[planner] Cannot set waypoints: Task not in READY state.\n");
-            //     return false;
-            // }
+            if (task_status_ != READY)
+            {
+                log("[planner] Cannot set waypoints: Task not in READY state(local→UTM transform not ready or the task is being planned.)");
+                return false;
+            }
 
             original_waypoints_ = waypoints;
 
@@ -306,13 +310,14 @@ namespace global_planner
         switch (op)
         {
         case START:
-            if (task_status_ != READY)
-            {
-                log("[planner] Cannot START: Task not READY.");
-                return false;
-            }
+            // do nothing!
+            // if (task_status_ != READY)
+            // {
+            //     log("[planner] Cannot START: Task not READY.");
+            //     return false;
+            // }
 
-            log("[planner] Please setWaypoint.");
+            // log("[planner] Please setWaypoint.");
             return true;
 
         case STOP:

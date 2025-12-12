@@ -29,7 +29,6 @@ int main()
     }
     std::string path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
     loc.setMap(path);
-    std::string map_path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
     WaylineManager wayline("/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/linepoints.kmz");
 
     if (!wayline.load())
@@ -62,8 +61,8 @@ int main()
 
     loc.setWaypoint(waypoints);
 
-    sleep(2); // 等待一秒以确保前面的设置完成
-    loc.setWaypoint(waypoints);
+    // sleep(2); // 等待一秒以确保前面的设置完成
+    // loc.setWaypoint(waypoints);
 
     // loc.plan_thread_.join();
     // loc.exeTaskOperation(global_planner::STOP);

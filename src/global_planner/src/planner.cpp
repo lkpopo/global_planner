@@ -161,6 +161,8 @@ namespace global_planner
             }
 
             auto segment = Astar_ptr->getPath(); // 或 retrievePath() 返回最终路径
+            Astar_ptr->reset();
+
             segment.begin()->index = index++;
             (segment.end() - 1)->index = index;
 
@@ -174,7 +176,6 @@ namespace global_planner
             plannedWaypointsCallback_(full_path_);
         log("[planner] Full path planned successfully. Total nodes: " + std::to_string(full_path_.size()));
 
-        Astar_ptr->reset();
         return true;
     }
 

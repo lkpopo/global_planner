@@ -35,32 +35,32 @@ set(SOURCES
 )
 
 #---------自己调试的时候用这个----------------
-include(${CMAKE_CURRENT_SOURCE_DIR}/3party/miniz/miniz.cmake)
-include(${CMAKE_CURRENT_SOURCE_DIR}/3party/pugixml/pugixml.cmake)
-add_executable(main src/main.cpp src/WaylineManager.cpp)
+# include(${CMAKE_CURRENT_SOURCE_DIR}/3party/miniz/miniz.cmake)
+# include(${CMAKE_CURRENT_SOURCE_DIR}/3party/pugixml/pugixml.cmake)
+# add_executable(main src/main.cpp src/WaylineManager.cpp)
 
-add_library(planner STATIC ${SOURCES})
-
-target_link_libraries(
-    main
-    planner
-    OpenMP::OpenMP_CXX
-    pthread
-    miniz_lib 
-    pugixml_lib
-    ${PCL_LIBRARIES}
-    yaml-cpp
-)
-#---------自己调试的时候用这个----------------
-
-# ------------------- 仅库文件 -------------------
 # add_library(planner STATIC ${SOURCES})
 
 # target_link_libraries(
+#     main
 #     planner
 #     OpenMP::OpenMP_CXX
 #     pthread
+#     miniz_lib 
+#     pugixml_lib
 #     ${PCL_LIBRARIES}
 #     yaml-cpp
 # )
+#---------自己调试的时候用这个----------------
+
+# ------------------- 仅库文件 -------------------
+add_library(planner STATIC ${SOURCES})
+
+target_link_libraries(
+    planner
+    OpenMP::OpenMP_CXX
+    pthread
+    ${PCL_LIBRARIES}
+    yaml-cpp
+)
 # ------------------- 仅库文件 -------------------

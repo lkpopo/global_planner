@@ -179,6 +179,26 @@ namespace global_planner
         return true;
     }
 
+    bool planner::planWaypointsPath_withoutMap()
+    {
+        full_path_.clear();
+
+        auto curr_p = utm_waypoints_.front().location; // 起点
+        int index = 0;
+        for(size_t i=0;i<utm_waypoints_.size();++i)
+        {
+            UTM_Location goal_p = utm_waypoints_[i].location;
+            goal_p.index = index++;
+            full_path_.push_back(goal_p);
+        }
+        
+        if (plannedWaypointsCallback_)
+            plannedWaypointsCallback_(full_path_);
+        log("[planner] Full path planned successfully. Total nodes: " + std::to_string(full_path_.size()));
+
+        return true;
+    }
+
     void planner::startRealtimeThread()
     {
         stop_thread_ = false;
@@ -231,14 +251,16 @@ namespace global_planner
 
         plan_thread_ = std::thread([this]()
                                    {
-        log("[planner] Waiting for map to be ready.");
-        {
-            std::unique_lock<std::mutex> lock(map_mutex_);
-            map_cv_.wait(lock, [this] { return map_ready_; });
-        }
+        // log("[planner] Waiting for map to be ready.");
+        // {
+        //     // 阻塞等待地图加载完成
+        //     std::unique_lock<std::mutex> lock(map_mutex_);
+        //     map_cv_.wait(lock, [this] { return map_ready_; });
+        // }
         log("[planner] Planning thread started.");
-        std::cout<<"Planning thread started."<<std::endl;
-        bool success = planWaypointsPath();
+
+        // bool success = planWaypointsPath();
+        bool success = planWaypointsPath_withoutMap();
 
         if (!success)
         {
@@ -311,13 +333,6 @@ namespace global_planner
         {
         case START:
             // do nothing!
-            // if (task_status_ != READY)
-            // {
-            //     log("[planner] Cannot START: Task not READY.");
-            //     return false;
-            // }
-
-            // log("[planner] Please setWaypoint.");
             return true;
 
         case STOP:
@@ -338,6 +353,9 @@ namespace global_planner
             task_status_ = IDLE;
             if (taskStatusCallback_)
                 taskStatusCallback_(task_status_);
+            
+            stop();
+            log("[planner] All threads stopped.");
 
             return true;
 

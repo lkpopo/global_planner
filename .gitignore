@@ -4,6 +4,7 @@ build_x86
 install
 log
 bag
+data
 *.pcd
 *.a
 *.o

@@ -162,6 +162,7 @@ namespace global_planner
         /*** === 内部私有方法 === ***/
         void log(const std::string &msg);
         bool planWaypointsPath();
+        bool planWaypointsPath_withoutMap();
 
     public:
         planner();

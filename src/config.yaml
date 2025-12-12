@@ -1,8 +1,0 @@
-lambda_heu: 2.0
-lambda_cost: 300.0
-max_search_num: 100000
-resolution: 1.0
-
-# 占据地图参数
-cost_inflate: 5
-inflate: 0.5

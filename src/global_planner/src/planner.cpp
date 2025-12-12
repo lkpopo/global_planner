@@ -512,10 +512,10 @@ namespace global_planner
     Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw)
     {
         // 如果是角度，需要通过如下变换转换为弧度
-        //  double deg2rad = M_PI / 180.0;
-        //  roll *= deg2rad;
-        //  pitch *= deg2rad;
-        //  yaw *= deg2rad;
+         double deg2rad = M_PI / 180.0;
+         roll *= deg2rad;
+         pitch *= deg2rad;
+         yaw *= deg2rad;
 
         Eigen::AngleAxisd rx(roll, Eigen::Vector3d::UnitX());
         Eigen::AngleAxisd ry(pitch, Eigen::Vector3d::UnitY());

@@ -21,15 +21,19 @@ int main()
                                         }
                                     });
 
-    bool res = loc.setConfig("/home/zxhc/Workspace/ROS2_WS/global_planner/src/config.yaml");
+    // bool res = loc.setConfig("/home/zxhc/Workspace/ROS2_WS/global_planner/src/config.yaml");
+    bool res = loc.setConfig("/home/dji/dpf/global_planner/src/config.yaml");
+    
     if (!res)
     {
         std::cout << "failed init config" << std::endl;
         return -1;
     }
-    std::string path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
+    // std::string path = "/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/bridge.pcd";
+    std::string path = "/home/dji/dpf/bridge.pcd";
     loc.setMap(path);
-    WaylineManager wayline("/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/linepoints.kmz");
+    // WaylineManager wayline("/home/zxhc/Workspace/ROS2_WS/global_planner/src/global_planner/test_demo/linepoints.kmz");
+    WaylineManager wayline("/home/dji/dpf/新建航点飞行7.kmz");
 
     if (!wayline.load())
     {

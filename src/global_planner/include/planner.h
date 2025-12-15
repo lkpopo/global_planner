@@ -79,7 +79,7 @@ namespace global_planner
     struct UTM_Location
     {
         double x = 0, y = 0, z = 0;
-        int index=-1;
+        int index = -1;
         UTM_Location() {}
         UTM_Location(double x_, double y_, double z_) : x(x_), y(y_), z(z_) {}
     };
@@ -137,13 +137,15 @@ namespace global_planner
         bool map_ready_ = false;
         bool map_loading_ = false;
 
-
         // local——>UTM坐标系转换
+        std::mutex mutex_;
+        bool is_aligned_;
+        global_planner::UTM_Location origin_utm_;
         bool tryUpdateLocalToUTMTransform();
         // UTM坐标转换的环带号
         int utm_zone_;
         // 判断时间戳是否接近
-        bool timestampsClose(double t1, double t2, double t3);
+        bool timestampsClose(double t1, double t2);
 
         /*** === 输入数据 === ***/
         std::optional<Location> curr_location_;

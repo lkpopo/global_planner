@@ -24,14 +24,15 @@ namespace global_planner
     // 航点到达判定距离阈值
     static constexpr double WAYPOINT_REACHED_DIST = 0.5; // 0.5米
 
-    // 用于坐标系转换的常量
-    static constexpr double WGS84_A = 6378137.0;                // 长半轴
-    static constexpr double WGS84_F = 1.0 / 298.257223563;      // 扁率
-    static constexpr double WGS84_E2 = WGS84_F * (2 - WGS84_F); // 偏心率平方
-    static constexpr double UTM_K0 = 0.9996;
+    // WGS84 椭球体参数
+    static constexpr double WGS84_A = 6378137.0;               // 长半轴
+    static constexpr double WGS84_F = 1.0 / 298.257223563;     // 扁率
+    static constexpr double WGS84_B = WGS84_A * (1 - WGS84_F); // 短半轴
+    static constexpr double k0 = 0.9996;                       // UTM 比例因子
+
     std::unique_ptr<Impl> impl_ = std::make_unique<Impl>();
 
-    Eigen::Vector3d gpsToUtm(double lat, double lon, double alt, int &utm_zone_);
+    global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt);
     Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw);
 
     planner::planner()
@@ -185,13 +186,13 @@ namespace global_planner
 
         auto curr_p = utm_waypoints_.front().location; // 起点
         int index = 0;
-        for(size_t i=0;i<utm_waypoints_.size();++i)
+        for (size_t i = 0; i < utm_waypoints_.size(); ++i)
         {
             UTM_Location goal_p = utm_waypoints_[i].location;
             goal_p.index = index++;
             full_path_.push_back(goal_p);
         }
-        
+
         if (plannedWaypointsCallback_)
             plannedWaypointsCallback_(full_path_);
         log("[planner] Full path planned successfully. Total nodes: " + std::to_string(full_path_.size()));
@@ -211,22 +212,34 @@ namespace global_planner
             Eigen::Vector3d current_utm;
 
             {
-                std::lock_guard<std::mutex> lk(data_mutex_);
+                std::lock_guard<std::mutex> lock(mutex_);
+        global_planner::UTM_Location result;
 
-                // 将IMU局部坐标转换为UTM
-                Eigen::Vector3d local_xyz(imu_offset_->x, imu_offset_->y, imu_offset_->z);
-                current_utm = impl_->loc2utm_Q * local_xyz + impl_->loc2utm_T;
-            }
+        // if (!is_aligned_) {
+        //     // 如果还没对齐，返回空或错误码，这里暂时返回0
+        //     return result;
+        // }
 
-            // 回调实时UTM位置
+        // 正向推算：实时 UTM = 锚点 + 实时 SLAM 偏移
+        // SLAM Y 加到 UTM X(东), SLAM X 加到 UTM Y(北)
+
+        result.x = origin_utm_.x + imu_offset_->y; // East
+        result.y = origin_utm_.y + imu_offset_->x; // North
+        result.z = origin_utm_.z + imu_offset_->z; // Up
+
+        // return result;
+        // 回调实时UTM位置
             if (realTimeUTMCallback_)
             {
-                UTM_Location utm;
-                utm.x = current_utm(0);
-                utm.y = current_utm(1);
-                utm.z = current_utm(2);
-                realTimeUTMCallback_(utm);
+                // UTM_Location utm;
+                // utm.x = current_utm(0);
+                // utm.y = current_utm(1);
+                // utm.z = current_utm(2);
+                realTimeUTMCallback_(result);
             }
+            }
+
+            
             std::this_thread::sleep_for(std::chrono::milliseconds(50)); // 控制循环频率
         }
 
@@ -240,7 +253,7 @@ namespace global_planner
             log("[planner] Plan thread already running.");
             return;
         }
-        
+
         if (plan_thread_.joinable())
         {
             log("[planner] Joining previous planning thread.");
@@ -306,10 +319,11 @@ namespace global_planner
             for (const auto &wp : original_waypoints_)
             {
                 UTM_waypoint utm_wp;
-                Eigen::Vector3d utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al, utm_zone_);
-                utm_wp.location.x = utm_coor(0);
-                utm_wp.location.y = utm_coor(1);
-                utm_wp.location.z = utm_coor(2);
+                global_planner::UTM_Location utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al);
+                // utm_wp.location.x = utm_coor(0);
+                // utm_wp.location.y = utm_coor(1);
+                // utm_wp.location.z = utm_coor(2);
+                utm_wp.location = utm_coor;
                 utm_wp.attitude = wp.attitude;
                 utm_wp.gimbal = wp.gimbal;
                 utm_waypoints_.push_back(utm_wp);
@@ -353,7 +367,7 @@ namespace global_planner
             task_status_ = IDLE;
             if (taskStatusCallback_)
                 taskStatusCallback_(task_status_);
-            
+
             stop();
             log("[planner] All threads stopped.");
 
@@ -411,43 +425,44 @@ namespace global_planner
     bool planner::tryUpdateLocalToUTMTransform()
     {
         std::lock_guard<std::mutex> lk(data_mutex_);
-        if (!imu_offset_ || !attitude_ || !curr_location_)
+        if (!imu_offset_ || !curr_location_)
         {
-            // log("[planner] Timestamps not aligned.");
             return false;
         }
 
         double t1 = imu_offset_->timeStamp;
-        double t2 = attitude_->timeStamp;
-        double t3 = curr_location_->timeStamp;
+        double t2 = curr_location_->timeStamp;
 
-        if (!timestampsClose(t1, t2, t3))
+        if (!timestampsClose(t1, t2))
         {
             log("[planner] Timestamps not close enough for transform update.\n");
             return false;
         }
         log("[planner] Timestamps aligned. Computing local→UTM transform...");
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (is_aligned_)
+            return false; // 已经对齐过，不再重复对齐
 
-        Eigen::Vector3d p_utm = gpsToUtm(curr_location_->la, curr_location_->lo, curr_location_->al, utm_zone_);
-        Eigen::Matrix3d R = rpyToRotation(attitude_->roll, attitude_->pitch, attitude_->yaw);
+        // 1. 将当前 GPS 转为 UTM
+        global_planner::UTM_Location current_utm_gps = gpsToUtm(curr_location_->la, curr_location_->lo, curr_location_->al);
 
-        Eigen::Vector3d p_local(imu_offset_->x, imu_offset_->y, imu_offset_->z);
-        impl_->loc2utm_T = p_utm - R * p_local;
-        impl_->loc2utm_Q = Eigen::Quaterniond(R);
+        // UTM X (东) = 当前UTM东 - SLAM的东向分量(即 slam_y)
+        origin_utm_.x = current_utm_gps.x - imu_offset_->y;
 
-        task_status_ = READY;
-        if (taskStatusCallback_)
-            taskStatusCallback_(task_status_);
-        startRealtimeThread();
-        log("[planner] Updated local→UTM transform successfully.\n");
+        // UTM Y (北) = 当前UTM北 - SLAM的北向分量(即 slam_x)
+        origin_utm_.y = current_utm_gps.y - imu_offset_->x;
+
+        origin_utm_.z = current_utm_gps.z - imu_offset_->z;
+
+        is_aligned_ = true;
 
         return true;
     }
 
-    bool planner::timestampsClose(double t1, double t2, double t3)
+    bool planner::timestampsClose(double t1, double t2)
     {
-        double t_min = std::min({t1, t2, t3});
-        double t_max = std::max({t1, t2, t3});
+        double t_min = std::min({t1, t2});
+        double t_max = std::max({t1, t2});
         return (t_max - t_min) <= TIME_SYNC_THRESHOLD;
     }
 
@@ -478,44 +493,62 @@ namespace global_planner
         return int((lon + 180.0) / 6.0) + 1;
     }
 
-    Eigen::Vector3d gpsToUtm(double lat, double lon, double alt, int &utm_zone_)
+    global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt)
     {
-        // 度 → 弧度
+        global_planner::UTM_Location result;
+        // result.north = (lat >= 0);
+        result.z = alt; // 【新增】高度直接透传，不需要投影计算
+
+        // 1. 计算 UTM 区域号 (Zone)
+        int zone = (int)((lon + 180.0) / 6.0) + 1;
+
+        // 计算该区域的中央子午线经度 (Central Meridian)
+        double lon0 = -183.0 + (zone * 6.0);
+
+        // 角度转弧度
         double lat_rad = lat * M_PI / 180.0;
         double lon_rad = lon * M_PI / 180.0;
-
-        // 确定 UTM  Zone
-        int zone = lonToUTMZone(lon);
-        utm_zone_ = zone;
-
-        double lon0 = (zone - 1) * 6 - 180 + 3; // 中央经线
         double lon0_rad = lon0 * M_PI / 180.0;
 
-        double N = WGS84_A / sqrt(1 - WGS84_E2 * sin(lat_rad) * sin(lat_rad));
-        double T = tan(lat_rad) * tan(lat_rad);
-        double C = WGS84_E2 / (1 - WGS84_E2) * cos(lat_rad) * cos(lat_rad);
-        double A = cos(lat_rad) * (lon_rad - lon0_rad);
+        // 2. 椭球体计算中间变量
+        double e = std::sqrt(1 - (WGS84_B * WGS84_B) / (WGS84_A * WGS84_A)); // 第一偏心率
+        double e2 = e * e;
+        double e4 = e2 * e2;
+        double e6 = e4 * e2;
 
-        double M = WGS84_A * ((1 - WGS84_E2 / 4 - 3 * WGS84_E2 * WGS84_E2 / 64 - 5 * WGS84_E2 * WGS84_E2 * WGS84_E2 / 256) * lat_rad - (3 * WGS84_E2 / 8 + 3 * WGS84_E2 * WGS84_E2 / 32 + 45 * WGS84_E2 * WGS84_E2 * WGS84_E2 / 1024) * sin(2 * lat_rad) + (15 * WGS84_E2 * WGS84_E2 / 256 + 45 * WGS84_E2 * WGS84_E2 * WGS84_E2 / 1024) * sin(4 * lat_rad) - (35 * WGS84_E2 * WGS84_E2 * WGS84_E2 / 3072) * sin(6 * lat_rad));
+        double N = WGS84_A / std::sqrt(1 - e2 * std::sin(lat_rad) * std::sin(lat_rad)); // 卯酉圈曲率半径
+        double T = std::tan(lat_rad) * std::tan(lat_rad);
+        double C = e2 * std::cos(lat_rad) * std::cos(lat_rad) / (1 - e2);
+        double A = (lon_rad - lon0_rad) * std::cos(lat_rad);
 
-        double x = UTM_K0 * N * (A + (1 - T + C) * pow(A, 3) / 6 + (5 - 18 * T + T * T + 72 * C - 58 * WGS84_E2) * pow(A, 5) / 120) + 500000.0;
+        // 3. 计算子午线弧长 M
+        double M = WGS84_A * ((1 - e2 / 4 - 3 * e4 / 64 - 5 * e6 / 256) * lat_rad - (3 * e2 / 8 + 3 * e4 / 32 + 45 * e6 / 1024) * std::sin(2 * lat_rad) + (15 * e4 / 256 + 45 * e6 / 1024) * std::sin(4 * lat_rad) - (35 * e6 / 3072) * std::sin(6 * lat_rad));
 
-        double y = UTM_K0 * (M + N * tan(lat_rad) * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * pow(A, 4) / 24 + (61 - 58 * T + T * T + 600 * C - 330 * WGS84_E2) * pow(A, 6) / 720));
+        // 4. 计算 UTM 坐标 (x, y)
+        // 东坐标 (Easting)
+        result.x = k0 * N * (A + (1 - T + C) * A * A * A / 6 + (5 - 18 * T + T * T + 72 * C - 58 * e2) * A * A * A * A * A / 120) + 500000.0; // 加上 500km 伪东偏移
 
-        if (lat < 0)
-            y += 10000000.0;
+        // 北坐标 (Northing)
+        result.y = k0 * (M + N * std::tan(lat_rad) * (A * A / 2 + (5 - T + 9 * C + 4 * C * C) * A * A * A * A / 24 + (61 - 58 * T + T * T + 600 * C - 330 * e2) * A * A * A * A * A * A / 720));
 
-        return Eigen::Vector3d(x, y, alt);
+        // 如果是南半球，加上 10,000km 伪北偏移
+        // if (!result.north) {
+        //     result.y += 10000000.0;
+        // }
+
+        return result;
+
+        // return Eigen::Vector3d(x, y, alt);
     }
 
     // RPY -> 旋转矩阵,函数里面用的是弧度，不是角度
     Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw)
     {
         // 如果是角度，需要通过如下变换转换为弧度
-         double deg2rad = M_PI / 180.0;
-         roll *= deg2rad;
-         pitch *= deg2rad;
-         yaw *= deg2rad;
+        double deg2rad = M_PI / 180.0;
+        roll *= deg2rad;
+        pitch *= deg2rad;
+        yaw *= deg2rad;
 
         Eigen::AngleAxisd rx(roll, Eigen::Vector3d::UnitX());
         Eigen::AngleAxisd ry(pitch, Eigen::Vector3d::UnitY());

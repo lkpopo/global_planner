@@ -92,17 +92,8 @@ namespace global_planner
         gimbalAttitude gimbal;
     };
 
-    // 返回到达点位时，的航点相关信息
-    // struct reachedPoint
-    // {
-    //     UTM_waypoint wp;
-    //     int index = 0;
-    //     int total = 0;
-    // };
-
     using PlannedWaypointsCallback = std::function<void(const std::vector<UTM_Location> &)>;
     using RealTimeUTMCallback = std::function<void(const UTM_Location &)>;
-    // using WaypointReachedCallback = std::function<void(const reachedPoint &)>;
     using TaskStatusCallback = std::function<void(TaskStatus)>;
     using LogCallback = std::function<void(const std::string &)>;
 
@@ -157,10 +148,6 @@ namespace global_planner
         /*** === 输出数据 === ***/
         std::vector<UTM_Location> full_path_;
 
-        /*** === 封装的三方库变量 === ***/
-        // struct Impl;
-        // std::unique_ptr<Impl> impl_;
-
         /*** === 内部私有方法 === ***/
         void log(const std::string &msg);
         bool planWaypointsPath();
@@ -178,7 +165,7 @@ namespace global_planner
         bool setOffset(uavImu imu);
 
         // 无人机的朝向,实时给我
-        bool setUavAttitude(uavAttitude attitude);
+        // bool setUavAttitude(uavAttitude attitude);
 
         // 无人机当前位置,实时给我。
         bool setCurrLocation(Location location);

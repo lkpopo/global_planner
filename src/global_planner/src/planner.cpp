@@ -33,14 +33,12 @@ namespace global_planner
     std::unique_ptr<Impl> impl_ = std::make_unique<Impl>();
 
     global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt);
-    Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw);
 
     planner::planner()
     {
         Astar_ptr = std::make_shared<Astar>();
         plannedWaypointsCallback_ = nullptr;
         realTimeUTMCallback_ = nullptr;
-        // waypointReachedCallback_ = nullptr;
         taskStatusCallback_ = nullptr;
         task_status_ = IDLE;
 
@@ -111,20 +109,6 @@ namespace global_planner
         return true;
     }
 
-    bool planner::setUavAttitude(uavAttitude attitude)
-    {
-        {
-            std::lock_guard<std::mutex> lk(data_mutex_);
-            attitude_ = attitude;
-            // if(task_status_==IDLE)
-            // log("[planner] Set UAV attitude: yaw=" + std::to_string(attitude.yaw));
-        }
-
-        if (task_status_ == IDLE)
-            tryUpdateLocalToUTMTransform();
-        return true;
-    }
-
     bool planner::setCurrLocation(Location location)
     {
         {
@@ -161,8 +145,8 @@ namespace global_planner
                 return false;
             }
 
-            auto segment = Astar_ptr->getPath(); // 或 retrievePath() 返回最终路径
-            Astar_ptr->reset();
+            auto segment = Astar_ptr->getPath();
+            Astar_ptr->reset(); // 重置以便下一次搜索
 
             segment.begin()->index = index++;
             (segment.end() - 1)->index = index;
@@ -213,30 +197,15 @@ namespace global_planner
 
             {
                 std::lock_guard<std::mutex> lock(mutex_);
-        global_planner::UTM_Location result;
+                global_planner::UTM_Location result;
 
-        // if (!is_aligned_) {
-        //     // 如果还没对齐，返回空或错误码，这里暂时返回0
-        //     return result;
-        // }
-
-        // 正向推算：实时 UTM = 锚点 + 实时 SLAM 偏移
-        // SLAM Y 加到 UTM X(东), SLAM X 加到 UTM Y(北)
-
-        result.x = origin_utm_.x + imu_offset_->y; // East
-        result.y = origin_utm_.y + imu_offset_->x; // North
-        result.z = origin_utm_.z + imu_offset_->z; // Up
-
-        // return result;
-        // 回调实时UTM位置
-            if (realTimeUTMCallback_)
-            {
-                // UTM_Location utm;
-                // utm.x = current_utm(0);
-                // utm.y = current_utm(1);
-                // utm.z = current_utm(2);
-                realTimeUTMCallback_(result);
-            }
+                result.x = origin_utm_.x + imu_offset_->y; // East
+                result.y = origin_utm_.y + imu_offset_->x; // North
+                result.z = origin_utm_.z + imu_offset_->z; // Up
+                if (realTimeUTMCallback_)
+                {
+                    realTimeUTMCallback_(result);
+                }
             }
 
             
@@ -264,16 +233,16 @@ namespace global_planner
 
         plan_thread_ = std::thread([this]()
                                    {
-        // log("[planner] Waiting for map to be ready.");
-        // {
-        //     // 阻塞等待地图加载完成
-        //     std::unique_lock<std::mutex> lock(map_mutex_);
-        //     map_cv_.wait(lock, [this] { return map_ready_; });
-        // }
+        log("[planner] Waiting for map to be ready.");
+        {
+            // 阻塞等待地图加载完成
+            std::unique_lock<std::mutex> lock(map_mutex_);
+            map_cv_.wait(lock, [this] { return map_ready_; });
+        }
         log("[planner] Planning thread started.");
 
-        // bool success = planWaypointsPath();
-        bool success = planWaypointsPath_withoutMap();
+        bool success = planWaypointsPath();
+        // bool success = planWaypointsPath_withoutMap();
 
         if (!success)
         {
@@ -320,9 +289,6 @@ namespace global_planner
             {
                 UTM_waypoint utm_wp;
                 global_planner::UTM_Location utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al);
-                // utm_wp.location.x = utm_coor(0);
-                // utm_wp.location.y = utm_coor(1);
-                // utm_wp.location.z = utm_coor(2);
                 utm_wp.location = utm_coor;
                 utm_wp.attitude = wp.attitude;
                 utm_wp.gimbal = wp.gimbal;
@@ -393,12 +359,6 @@ namespace global_planner
         return;
     }
 
-    // void planner::setWaypointReachedCallback(WaypointReachedCallback callback)
-    // {
-    //     waypointReachedCallback_ = callback;
-    //     return;
-    // }
-
     void planner::setTaskStatusCallback(TaskStatusCallback callback)
     {
         taskStatusCallback_ = callback;
@@ -439,9 +399,6 @@ namespace global_planner
             return false;
         }
         log("[planner] Timestamps aligned. Computing local→UTM transform...");
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (is_aligned_)
-            return false; // 已经对齐过，不再重复对齐
 
         // 1. 将当前 GPS 转为 UTM
         global_planner::UTM_Location current_utm_gps = gpsToUtm(curr_location_->la, curr_location_->lo, curr_location_->al);
@@ -455,6 +412,12 @@ namespace global_planner
         origin_utm_.z = current_utm_gps.z - imu_offset_->z;
 
         is_aligned_ = true;
+
+        task_status_ = READY;
+        if (taskStatusCallback_)
+            taskStatusCallback_(task_status_);
+        startRealtimeThread();
+        log("[planner] Updated local→UTM transform successfully.\n");
 
         return true;
     }
@@ -486,11 +449,6 @@ namespace global_planner
 
         if (plan_thread_.joinable())
             plan_thread_.join();
-    }
-
-    int lonToUTMZone(double lon)
-    {
-        return int((lon + 180.0) / 6.0) + 1;
     }
 
     global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt)
@@ -539,21 +497,6 @@ namespace global_planner
         return result;
 
         // return Eigen::Vector3d(x, y, alt);
-    }
-
-    // RPY -> 旋转矩阵,函数里面用的是弧度，不是角度
-    Eigen::Matrix3d rpyToRotation(double roll, double pitch, double yaw)
-    {
-        // 如果是角度，需要通过如下变换转换为弧度
-        double deg2rad = M_PI / 180.0;
-        roll *= deg2rad;
-        pitch *= deg2rad;
-        yaw *= deg2rad;
-
-        Eigen::AngleAxisd rx(roll, Eigen::Vector3d::UnitX());
-        Eigen::AngleAxisd ry(pitch, Eigen::Vector3d::UnitY());
-        Eigen::AngleAxisd rz(yaw, Eigen::Vector3d::UnitZ());
-        return (rz * ry * rx).toRotationMatrix();
     }
 
 }

@@ -106,13 +106,11 @@ namespace global_planner
         /*** === 回调函数 === ***/
         PlannedWaypointsCallback plannedWaypointsCallback_;
         RealTimeUTMCallback realTimeUTMCallback_;
-        // WaypointReachedCallback waypointReachedCallback_;
         TaskStatusCallback taskStatusCallback_;
         LogCallback logCallback_;
 
         /*** === 任务状态 === ***/
         std::atomic<TaskStatus> task_status_{IDLE};
-        std::mutex state_mutex_; // 控制状态操作
         std::mutex data_mutex_;  // 控制数据输入
 
         /*** === 主线程相关 === ***/
@@ -130,18 +128,14 @@ namespace global_planner
 
         // local——>UTM坐标系转换
         std::mutex mutex_;
-        bool is_aligned_;
         global_planner::UTM_Location origin_utm_;
         bool tryUpdateLocalToUTMTransform();
-        // UTM坐标转换的环带号
-        int utm_zone_;
         // 判断时间戳是否接近
         bool timestampsClose(double t1, double t2);
 
         /*** === 输入数据 === ***/
         std::optional<Location> curr_location_;
         std::optional<uavImu> imu_offset_;
-        std::optional<uavAttitude> attitude_;
         std::vector<waypoint> original_waypoints_;
         std::vector<UTM_waypoint> utm_waypoints_;
 

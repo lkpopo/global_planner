@@ -411,8 +411,6 @@ namespace global_planner
 
         origin_utm_.z = current_utm_gps.z - imu_offset_->z;
 
-        is_aligned_ = true;
-
         task_status_ = READY;
         if (taskStatusCallback_)
             taskStatusCallback_(task_status_);

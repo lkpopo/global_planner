@@ -32,8 +32,6 @@ namespace global_planner
 
     std::unique_ptr<Impl> impl_ = std::make_unique<Impl>();
 
-    global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt);
-
     planner::planner()
     {
         Astar_ptr = std::make_shared<Astar>();
@@ -449,10 +447,10 @@ namespace global_planner
             plan_thread_.join();
     }
 
-    global_planner::UTM_Location gpsToUtm(double lat, double lon, double alt)
+    UTM_Location planner::gpsToUtm(double lat, double lon, double alt)
     {
         global_planner::UTM_Location result;
-        // result.north = (lat >= 0);
+
         result.z = alt; // 【新增】高度直接透传，不需要投影计算
 
         // 1. 计算 UTM 区域号 (Zone)

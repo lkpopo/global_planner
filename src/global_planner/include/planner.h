@@ -186,6 +186,9 @@ namespace global_planner
         // 给外部的接口 用于开始和停止我的任务
         bool exeTaskOperation(TaskOperation status);
 
+        // 将经纬度坐标转换到utm坐标系下
+        UTM_Location gpsToUtm(double lat, double lon, double alt);
+
         // 所以我这边有一个主线程跟外部进行对接，然后收到start相关信号的时候开启一个新的线程执行路径规划。
     };
 }

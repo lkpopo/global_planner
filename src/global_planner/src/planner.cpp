@@ -393,7 +393,7 @@ namespace global_planner
 
         if (!timestampsClose(t1, t2))
         {
-            log("[planner] Timestamps not close enough for transform update.\n");
+            // log("[planner] Timestamps not close enough for transform update.\n");
             return false;
         }
         log("[planner] Timestamps aligned. Computing local→UTM transform...");

@@ -231,16 +231,16 @@ namespace global_planner
 
         plan_thread_ = std::thread([this]()
                                    {
-        log("[planner] Waiting for map to be ready.");
-        {
-            // 阻塞等待地图加载完成
-            std::unique_lock<std::mutex> lock(map_mutex_);
-            map_cv_.wait(lock, [this] { return map_ready_; });
-        }
+        // log("[planner] Waiting for map to be ready.");
+        // {
+        //     // 阻塞等待地图加载完成
+        //     std::unique_lock<std::mutex> lock(map_mutex_);
+        //     map_cv_.wait(lock, [this] { return map_ready_; });
+        // }
         log("[planner] Planning thread started.");
 
-        bool success = planWaypointsPath();
-        // bool success = planWaypointsPath_withoutMap();
+        // bool success = planWaypointsPath();
+        bool success = planWaypointsPath_withoutMap();
 
         if (!success)
         {

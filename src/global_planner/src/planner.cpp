@@ -288,8 +288,7 @@ namespace global_planner
                 UTM_waypoint utm_wp;
                 global_planner::UTM_Location utm_coor = gpsToUtm(wp.location.la, wp.location.lo, wp.location.al);
                 utm_wp.location = utm_coor;
-                utm_wp.attitude = wp.attitude;
-                utm_wp.gimbal = wp.gimbal;
+                utm_wp.actionListVec = wp.actionListVec;
                 utm_waypoints_.push_back(utm_wp);
             }
             task_status_ = IN_PROGRESS;

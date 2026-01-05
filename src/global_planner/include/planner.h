@@ -66,13 +66,29 @@ namespace global_planner
         double pitch = 0;
         double yaw = 0;
     };
+    
+    //相机参数
+    struct cameraAttitude
+    {
+        double operationType = 0; //类型0 默认不变焦
+        double focalLength;  //焦距长度
+    };
+
+    //动作
+    struct actioAttitude
+    {
+        uavAttitude attitude;
+        gimbalAttitude gimbal;
+        cameraAttitude camera;
+    };
 
     // 无人机航点信息
     struct waypoint
     {
         Location location;
-        uavAttitude attitude;
-        gimbalAttitude gimbal;
+        std::vector<actioAttitude> actionListVec;
+        // uavAttitude attitude;
+        // gimbalAttitude gimbal;
     };
 
     // 规划好的航线点,UTM坐标系下的点
@@ -88,8 +104,9 @@ namespace global_planner
     struct UTM_waypoint
     {
         UTM_Location location;
-        uavAttitude attitude;
-        gimbalAttitude gimbal;
+        std::vector<actioAttitude> actionListVec;
+        // uavAttitude attitude;
+        // gimbalAttitude gimbal;
     };
 
     using PlannedWaypointsCallback = std::function<void(const std::vector<UTM_Location> &)>;
